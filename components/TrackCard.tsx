@@ -9,17 +9,19 @@ interface Props {
 export default function TrackCard({ index, artist, title, timestamp, fresh }: Props) {
   return (
     <div
-      className={`flex items-center gap-4 px-5 py-4 rounded-xl border transition-all duration-300 ${
+      className={`grid items-center gap-x-4 px-5 py-4 rounded-xl border transition-all duration-300 ${
+        timestamp ? "grid-cols-[2rem_3.5rem_1fr]" : "grid-cols-[2rem_1fr]"
+      } ${
         fresh
           ? "border-orange-400/60 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-500/40"
           : "border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900"
       }`}
     >
-      <span className="w-8 text-right text-xs font-mono text-zinc-400 dark:text-zinc-600 shrink-0">
+      <span className="text-right text-xs font-mono text-zinc-400 dark:text-zinc-600">
         {index}
       </span>
       {timestamp && (
-        <span className="text-xs font-mono text-orange-500 dark:text-orange-400 shrink-0 w-12">
+        <span className="text-xs font-mono text-orange-500 dark:text-orange-400">
           {timestamp}
         </span>
       )}

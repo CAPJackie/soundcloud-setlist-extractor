@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
       try {
         // --- Cache check ---
         emit({ type: "status", message: "Checking cache..." });
-        const cached = await getCachedSetlist(url);
+        const cached = await getCachedSetlist(url).catch(() => null);
         if (cached) {
           emit({ type: "status", message: `Found cached result from ${cached.cachedAt.toLocaleDateString()}` });
           for (const t of cached.tracks) {
@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
             username: track.username,
             publishedAt: track.publishedAt,
             tracks: collectedTracks,
-          });
+          }).catch(() => {});
           emit({ type: "done", total: collectedTracks.length });
           close();
           return;
@@ -144,7 +144,7 @@ export async function GET(req: NextRequest) {
             if (match && !seenTitles.has(match.title.toLowerCase())) {
               seenTitles.add(match.title.toLowerCase());
               const mm = String(Math.floor(seg.offsetSecs / 60)).padStart(2, "0");
-              const ss = String(seg.offsetSecs % 60).padStart(2, "0");
+              const ss = String(Math.floor(seg.offsetSecs % 60)).padStart(2, "0");
               const t: CachedTrack = {
                 artist: match.artist,
                 title: match.title,
@@ -166,7 +166,7 @@ export async function GET(req: NextRequest) {
             username: track.username,
             publishedAt: track.publishedAt,
             tracks: collectedTracks,
-          });
+          }).catch(() => {});
         }
 
         emit({ type: "done", total: collectedTracks.length });
