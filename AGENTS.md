@@ -33,6 +33,8 @@ app/
   api/
     extract/route.ts        GET — SSE streaming endpoint, orchestrates both tiers
     cache/route.ts          DELETE — clears MongoDB cache for a URL (dev only, returns 403 in prod)
+  spotify/
+    callback/page.tsx       OAuth callback — exchanges PKCE code, writes token to localStorage, closes popup
 
 lib/
   soundcloud.ts             SoundCloud page scraping (no official API)
@@ -41,11 +43,12 @@ lib/
   acrcloud.ts               ACRCloud identify API client (HMAC-SHA1 signed)
   setlist-cache.ts          MongoDB read/write helpers
   db.ts                     MongoDB connection singleton (survives Next.js hot reloads)
+  spotify.ts                Spotify PKCE auth + Web API helpers (search, create playlist, add items)
 
 components/
   URLInput.tsx              Controlled URL form, disabled during loading
-  TrackList.tsx             Renders track list + "Copy all" + dev-only "Reset cache" button
-  TrackCard.tsx             Single track row: number, optional timestamp, title, artist
+  TrackList.tsx             Renders track list + "Copy all" + "Export to Spotify" + dev-only "Reset cache"
+  TrackCard.tsx             Single track row: number (red if not found on Spotify), timestamp, title, artist
 ```
 
 ---
@@ -99,6 +102,8 @@ MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/
 ACRCLOUD_HOST=identify-us-west-2.acrcloud.com   # match your ACRCloud project region
 ACRCLOUD_ACCESS_KEY=...
 ACRCLOUD_ACCESS_SECRET=...
+NEXT_PUBLIC_SPOTIFY_CLIENT_ID=...
+NEXT_PUBLIC_SPOTIFY_REDIRECT_URI=http://127.0.0.1:3000/spotify/callback
 ```
 
 ACRCloud free tier: 20,000 requests. At 80s sampling a 2-hour mix ≈ 90 requests → ~220 full sets before any charges.
@@ -111,6 +116,7 @@ ACRCloud free tier: 20,000 requests. At 80s sampling a 2-hour mix ≈ 90 request
 npm run dev        # start dev server on :3000
 ```
 
+- Access the app at `http://127.0.0.1:3000` (not `localhost`) — Spotify's redirect URI policy requires an explicit loopback IP, not the `localhost` hostname.
 - The "Reset cache" button next to the track count is **dev-only** — it calls `DELETE /api/cache?url=...` and clears the MongoDB document so you can re-run extraction on the same URL.
 - `NODE_ENV === 'development'` guard is in both the button render (`TrackList.tsx`) and the route handler (`cache/route.ts`).
 
@@ -125,7 +131,7 @@ All events are `data: <JSON>\n\n` lines on the `/api/extract` response stream:
 | `status` | `message: string`                         | Progress update                |
 | `track`  | `data: {artist, title, timestamp?}`       | One identified track           |
 | `error`  | `message: string`                         | Fatal error, stream ends       |
-| `done`   | `total: number, cached?: boolean`         | Extraction complete            |
+| `done`   | `total: number, cached?: boolean, title?: string` | Extraction complete     |
 
 ---
 
@@ -135,3 +141,25 @@ All events are `data: <JSON>\n\n` lines on the `/api/extract` response stream:
 - **HLS transcoding quality** — `audio/mpegurl` transcodings return 404. Always try `audio/mpeg` first.
 - **SSE via `fetch` not `EventSource`** — the frontend uses `fetch` + `ReadableStream` reader instead of `EventSource` to avoid CORS pre-flight issues with query params.
 - **Buffer → Blob** — Node.js `Buffer` is not directly assignable to `BlobPart` in TypeScript strict mode; wrap with `new Uint8Array(buffer)`.
+
+---
+
+## Spotify export
+
+After extraction, a green "Export to Spotify" button appears. Clicking it opens a popup for Spotify OAuth (PKCE, no client secret needed), then searches each track and creates a playlist named after the mix.
+
+### Auth flow
+- `lib/spotify.ts` handles PKCE: generates verifier + challenge, stores verifier in `localStorage` (shared across windows), opens popup to `accounts.spotify.com/authorize`.
+- Popup navigates through Spotify and back to `app/spotify/callback/page.tsx`, which exchanges the code and writes `{ token }` to `localStorage.spotify_auth_result`.
+- Main window listens via the `storage` event (not `postMessage` — `window.opener` is nullified by browsers when a popup crosses origins).
+- **`useSearchParams` requires `<Suspense>`** in the callback page (Next.js App Router requirement).
+
+### Scopes
+`playlist-modify-public playlist-modify-private`
+
+### Spotify API notes
+- **Add tracks endpoint (Feb 2026 change):** `POST /playlists/{id}/items` — the old `/playlists/{id}/tracks` path returns 403.
+- Playlist creation: `POST /me/playlists`
+- Track search: `GET /search?q=track:{title}+artist:{artist}&type=track&limit=1`
+- Tracks not found on Spotify are shown with their index number in red in `TrackCard`.
+- Every "Export to Spotify" click forces a fresh auth (`show_dialog=true`) to ensure scopes are always granted.
