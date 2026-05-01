@@ -14,7 +14,7 @@ type SseEvent =
   | { type: "status"; message: string }
   | { type: "track"; data: Track }
   | { type: "error"; message: string }
-  | { type: "done"; total: number };
+  | { type: "done"; total: number; title?: string };
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
@@ -23,6 +23,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState<number | null>(null);
   const [currentUrl, setCurrentUrl] = useState<string | null>(null);
+  const [mixTitle, setMixTitle] = useState<string | null>(null);
 
   const handleSubmit = useCallback(async (url: string) => {
     setLoading(true);
@@ -31,6 +32,7 @@ export default function Home() {
     setError(null);
     setTotal(null);
     setCurrentUrl(url);
+    setMixTitle(null);
 
     try {
       const res = await fetch(`/api/extract?url=${encodeURIComponent(url)}`);
@@ -59,6 +61,7 @@ export default function Home() {
             else if (event.type === "done") {
               setTotal(event.total);
               setStatus("");
+              if (event.title) setMixTitle(event.title);
             }
           } catch {
             // malformed event, skip
@@ -100,7 +103,8 @@ export default function Home() {
           error={error}
           total={total}
           currentUrl={currentUrl}
-          onCacheReset={() => { setTracks([]); setTotal(null); setStatus(""); }}
+          mixTitle={mixTitle}
+          onCacheReset={() => { setTracks([]); setTotal(null); setStatus(""); setMixTitle(null); }}
         />
       </div>
     </main>

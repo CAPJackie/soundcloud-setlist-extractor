@@ -4,9 +4,10 @@ interface Props {
   title: string;
   timestamp?: string;
   fresh?: boolean;
+  spotifyFound?: boolean;
 }
 
-export default function TrackCard({ index, artist, title, timestamp, fresh }: Props) {
+export default function TrackCard({ index, artist, title, timestamp, fresh, spotifyFound }: Props) {
   return (
     <div
       className={`grid items-center gap-x-4 px-5 py-4 rounded-xl border transition-all duration-300 ${
@@ -17,7 +18,7 @@ export default function TrackCard({ index, artist, title, timestamp, fresh }: Pr
           : "border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900"
       }`}
     >
-      <span className="text-right text-xs font-mono text-zinc-400 dark:text-zinc-600">
+      <span className={`text-right text-xs font-mono ${spotifyFound === false ? "text-red-500 dark:text-red-400" : "text-zinc-400 dark:text-zinc-600"}`}>
         {index}
       </span>
       {timestamp && (

@@ -17,7 +17,7 @@ type SseEvent =
   | { type: "status"; message: string }
   | { type: "track"; data: { artist: string; title: string; timestamp?: string } }
   | { type: "error"; message: string }
-  | { type: "done"; total: number; cached?: boolean };
+  | { type: "done"; total: number; cached?: boolean; title?: string };
 
 function encode(event: SseEvent): string {
   return `data: ${JSON.stringify(event)}\n\n`;
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
           for (const t of cached.tracks) {
             emit({ type: "track", data: t });
           }
-          emit({ type: "done", total: cached.tracks.length, cached: true });
+          emit({ type: "done", total: cached.tracks.length, cached: true, title: cached.title });
           close();
           return;
         }
@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
             publishedAt: track.publishedAt,
             tracks: collectedTracks,
           }).catch(() => {});
-          emit({ type: "done", total: collectedTracks.length });
+          emit({ type: "done", total: collectedTracks.length, title: track.title });
           close();
           return;
         }
@@ -169,7 +169,7 @@ export async function GET(req: NextRequest) {
           }).catch(() => {});
         }
 
-        emit({ type: "done", total: collectedTracks.length });
+        emit({ type: "done", total: collectedTracks.length, title: track.title });
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
         emit({ type: "error", message: msg });
