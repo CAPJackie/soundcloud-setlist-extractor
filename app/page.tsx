@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { signOut } from "next-auth/react";
 import URLInput from "@/components/URLInput";
 import TrackList from "@/components/TrackList";
 
@@ -80,11 +81,19 @@ export default function Home() {
       <div className="w-full max-w-2xl flex flex-col gap-10">
         {/* Header */}
         <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">&#127925;</span>
-            <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-              Setlist Extractor
-            </h1>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">&#127925;</span>
+              <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+                Setlist Extractor
+              </h1>
+            </div>
+            <button
+              onClick={() => signOut({ redirectTo: "/login" })}
+              className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition"
+            >
+              Sign out
+            </button>
           </div>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
             Paste a SoundCloud mix URL to extract the full tracklist. Reads the description first,
