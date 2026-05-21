@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import TopNav from "@/components/TopNav";
+import { auth } from "@/auth";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,19 +19,24 @@ export const metadata: Metadata = {
   description: "Extract tracklists from SoundCloud mixes",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await auth();
+  const showNav = !!session?.user;
+
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <TopNav />
-        <div className="pt-14 flex flex-col flex-1">{children}</div>
+        {showNav && <TopNav />}
+        <div className={showNav ? "pt-14 flex flex-col flex-1" : "flex flex-col flex-1"}>
+          {children}
+        </div>
       </body>
     </html>
   );

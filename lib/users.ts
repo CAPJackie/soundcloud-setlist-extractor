@@ -26,3 +26,11 @@ export async function createUser(email: string, passwordHash: string): Promise<v
     createdAt: new Date(),
   });
 }
+
+export async function updateUserPassword(email: string, passwordHash: string): Promise<void> {
+  const col = await collection();
+  await col.updateOne(
+    { email: email.toLowerCase().trim() },
+    { $set: { passwordHash } }
+  );
+}

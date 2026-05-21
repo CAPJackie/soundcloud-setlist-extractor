@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import Link from "next/link";
 import { signIn } from "next-auth/react";
+import { usePreventPasswordCopy } from "@/lib/hooks/use-prevent-password-copy";
 
 export default function LoginPage() {
   const [mode, setMode] = useState<"signin" | "register">("signin");
@@ -9,6 +11,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const passwordRef = useRef<HTMLInputElement>(null);
+  usePreventPasswordCopy([passwordRef]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,6 +91,7 @@ export default function LoginPage() {
                 Password
               </label>
               <input
+                ref={passwordRef}
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -115,16 +121,21 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-4 text-center text-sm text-zinc-500 dark:text-zinc-400">
+          <div className="mt-4 flex flex-col gap-2 text-center text-sm text-zinc-500 dark:text-zinc-400">
             {mode === "signin" ? (
               <>
-                Need an account?{" "}
-                <button
-                  onClick={() => { setMode("register"); setError(null); }}
-                  className="text-orange-500 hover:text-orange-400 font-medium"
-                >
-                  Create one
-                </button>
+                <span>
+                  Need an account?{" "}
+                  <button
+                    onClick={() => { setMode("register"); setError(null); }}
+                    className="text-orange-500 hover:text-orange-400 font-medium"
+                  >
+                    Create one
+                  </button>
+                </span>
+                <Link href="/forgot-password" className="text-orange-500 hover:text-orange-400 font-medium">
+                  Forgot password?
+                </Link>
               </>
             ) : (
               <>
