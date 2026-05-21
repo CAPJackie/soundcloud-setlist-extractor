@@ -10,6 +10,7 @@ import { parseTracklist } from "@/lib/tracklist-parser";
 import { fetchM3u8Segments, sampleSegments, downloadSegmentBytes, SAMPLE_INTERVAL_SECS } from "@/lib/hls-chunks";
 import { identifyAudio } from "@/lib/acrcloud";
 import { getCachedSetlist, saveSetlist, CachedTrack } from "@/lib/setlist-cache";
+import { auth } from "@/auth";
 
 export const maxDuration = 300;
 
@@ -24,6 +25,9 @@ function encode(event: SseEvent): string {
 }
 
 export async function GET(req: NextRequest) {
+  const session = await auth();
+  const userEmail = session?.user?.email ?? undefined;
+
   const url = req.nextUrl.searchParams.get("url");
   if (!url) return new Response("Missing url param", { status: 400 });
 
@@ -80,7 +84,7 @@ export async function GET(req: NextRequest) {
             username: track.username,
             publishedAt: track.publishedAt,
             tracks: collectedTracks,
-          }).catch(() => {});
+          }, userEmail).catch(() => {});
           emit({ type: "done", total: collectedTracks.length, title: track.title });
           close();
           return;
@@ -166,7 +170,7 @@ export async function GET(req: NextRequest) {
             username: track.username,
             publishedAt: track.publishedAt,
             tracks: collectedTracks,
-          }).catch(() => {});
+          }, userEmail).catch(() => {});
         }
 
         emit({ type: "done", total: collectedTracks.length, title: track.title });
