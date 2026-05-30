@@ -7,8 +7,9 @@ import {
   getHlsTranscodings,
 } from "@/lib/soundcloud";
 import { parseTracklist } from "@/lib/tracklist-parser";
-import { fetchM3u8Segments, sampleSegments, downloadSegmentBytes, SAMPLE_INTERVAL_SECS } from "@/lib/hls-chunks";
-import { identifyAudio } from "@/lib/acrcloud";
+import { fetchM3u8Segments, findSegmentNearOffset, downloadSegmentBytes, INITIAL_OFFSET_SECS, TRACK_ESTIMATE_SECS, FALLBACK_STEP_SECS } from "@/lib/hls-chunks";
+import { identifyAudio, AcrRateLimitError } from "@/lib/acrcloud";
+import { identifyWithAudd, AUDD_MAX_CALLS_PER_SESSION } from "@/lib/audd";
 import { getCachedSetlist, saveSetlist, CachedTrack } from "@/lib/setlist-cache";
 import { auth } from "@/auth";
 
@@ -16,6 +17,7 @@ export const maxDuration = 300;
 
 type SseEvent =
   | { type: "status"; message: string }
+  | { type: "warning"; message: string }
   | { type: "track"; data: { artist: string; title: string; timestamp?: string } }
   | { type: "error"; message: string }
   | { type: "done"; total: number; cached?: boolean; title?: string };
@@ -130,20 +132,30 @@ export async function GET(req: NextRequest) {
 
         emit({ type: "status", message: "Loading audio segments..." });
         const allSegments = await fetchM3u8Segments(m3u8Url);
-        const sampled = sampleSegments(allSegments, SAMPLE_INTERVAL_SECS);
+        const totalDuration = allSegments[allSegments.length - 1]?.offsetSecs ?? 0;
 
-        emit({ type: "status", message: `Analyzing ${sampled.length} audio samples across the set...` });
+        emit({ type: "status", message: "Analyzing audio samples across the set..." });
 
         const seenTitles = new Set(collectedTracks.map((t) => t.title.toLowerCase()));
+        const visitedUrls = new Set<string>();
+        let targetOffset = INITIAL_OFFSET_SECS;
+        let auddCalls = 0;
 
-        for (let i = 0; i < sampled.length; i++) {
-          const seg = sampled[i];
+        while (targetOffset <= totalDuration) {
+          const seg = findSegmentNearOffset(allSegments, targetOffset);
+          if (!seg || visitedUrls.has(seg.url)) break;
+          visitedUrls.add(seg.url);
+
           const minutes = Math.floor(seg.offsetSecs / 60);
-          emit({ type: "status", message: `Identifying track at ~${minutes}:00 (${i + 1}/${sampled.length})...` });
+          emit({ type: "status", message: `Identifying track at ~${minutes}:00...` });
 
           try {
             const bytes = await downloadSegmentBytes(seg.url);
-            const match = await identifyAudio(bytes, seg.offsetSecs);
+            let match: { artist: string; title: string } | null = await identifyAudio(bytes, seg.offsetSecs);
+            if (!match && auddCalls < AUDD_MAX_CALLS_PER_SESSION) {
+              auddCalls++;
+              match = await identifyWithAudd(bytes);
+            }
 
             if (match && !seenTitles.has(match.title.toLowerCase())) {
               seenTitles.add(match.title.toLowerCase());
@@ -156,9 +168,16 @@ export async function GET(req: NextRequest) {
               };
               collectedTracks.push(t);
               emit({ type: "track", data: t });
+              targetOffset = seg.offsetSecs + TRACK_ESTIMATE_SECS;
+            } else {
+              targetOffset = seg.offsetSecs + FALLBACK_STEP_SECS;
             }
-          } catch {
-            // Skip failed segment silently
+          } catch (err) {
+            if (err instanceof AcrRateLimitError) {
+              emit({ type: "warning", message: "ACRCloud daily limit reached — results may be incomplete. Try again tomorrow." });
+              break;
+            }
+            targetOffset = seg.offsetSecs + FALLBACK_STEP_SECS;
           }
         }
 

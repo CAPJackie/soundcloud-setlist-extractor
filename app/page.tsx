@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { toast } from "sonner";
 import URLInput from "@/components/URLInput";
 import TrackList from "@/components/TrackList";
 
@@ -12,6 +13,7 @@ interface Track {
 
 type SseEvent =
   | { type: "status"; message: string }
+  | { type: "warning"; message: string }
   | { type: "track"; data: Track }
   | { type: "error"; message: string }
   | { type: "done"; total: number; title?: string };
@@ -56,6 +58,7 @@ export default function Home() {
           try {
             const event = JSON.parse(line.slice(6)) as SseEvent;
             if (event.type === "status") setStatus(event.message);
+            else if (event.type === "warning") toast.error(event.message);
             else if (event.type === "track") setTracks((prev) => [...prev, event.data]);
             else if (event.type === "error") setError(event.message);
             else if (event.type === "done") {

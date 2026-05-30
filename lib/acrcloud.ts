@@ -1,10 +1,18 @@
 import crypto from "crypto";
 
+export class AcrRateLimitError extends Error {
+  constructor() {
+    super("ACRCloud daily request limit reached");
+    this.name = "AcrRateLimitError";
+  }
+}
+
 export interface AcrMatch {
   artist: string;
   title: string;
   album?: string;
   offsetSecs?: number;
+  score?: number;
 }
 
 interface AcrResponse {
@@ -14,6 +22,7 @@ interface AcrResponse {
       title: string;
       artists?: Array<{ name: string }>;
       album?: { name: string };
+      score?: number;
     }>;
   };
 }
@@ -66,6 +75,7 @@ export async function identifyAudio(
   if (!res.ok) return null;
 
   const json = (await res.json()) as AcrResponse;
+  if (json.status.code === 3003) throw new AcrRateLimitError();
   if (json.status.code !== 0) return null;
 
   const music = json.metadata?.music?.[0];
@@ -76,5 +86,6 @@ export async function identifyAudio(
     title: music.title ?? "Unknown Title",
     album: music.album?.name,
     offsetSecs,
+    score: music.score,
   };
 }

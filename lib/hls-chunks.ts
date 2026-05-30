@@ -1,4 +1,6 @@
-export const SAMPLE_INTERVAL_SECS = 80;
+export const INITIAL_OFFSET_SECS = 30;
+export const TRACK_ESTIMATE_SECS = 180;
+export const FALLBACK_STEP_SECS = 60;
 
 export interface HlsSegment {
   url: string;
@@ -60,23 +62,12 @@ function extractFirstVariantUrl(text: string, baseUrl: string): string | null {
   return null;
 }
 
-// Returns one segment per intervalSecs across the full duration
-export function sampleSegments(
-  segments: HlsSegment[],
-  intervalSecs = 300
-): HlsSegment[] {
-  if (segments.length === 0) return [];
-  const sampled: HlsSegment[] = [];
-  let nextTarget = 0;
-
+export function findSegmentNearOffset(segments: HlsSegment[], targetSecs: number): HlsSegment | null {
+  if (segments.length === 0) return null;
   for (const seg of segments) {
-    if (seg.offsetSecs >= nextTarget) {
-      sampled.push(seg);
-      nextTarget = seg.offsetSecs + intervalSecs;
-    }
+    if (seg.offsetSecs >= targetSecs) return seg;
   }
-
-  return sampled;
+  return segments[segments.length - 1];
 }
 
 export async function downloadSegmentBytes(url: string): Promise<Buffer> {
