@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import PasswordInput from "@/components/PasswordInput";
 
 type Status = "idle" | "loading" | "success" | "error";
 
@@ -53,12 +54,11 @@ export default function UpdatePasswordPage() {
           <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
             Current password
           </label>
-          <input
-            type="password"
+          <PasswordInput
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
             required
-            className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
+            className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
           />
         </div>
 
@@ -66,13 +66,12 @@ export default function UpdatePasswordPage() {
           <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
             New password
           </label>
-          <input
-            type="password"
+          <PasswordInput
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             required
             minLength={8}
-            className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
+            className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
           />
         </div>
 
@@ -80,12 +79,11 @@ export default function UpdatePasswordPage() {
           <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
             Confirm new password
           </label>
-          <input
-            type="password"
+          <PasswordInput
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             required
-            className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
+            className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
           />
         </div>
 

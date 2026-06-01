@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { usePreventPasswordCopy } from "@/lib/hooks/use-prevent-password-copy";
+import PasswordInput from "@/components/PasswordInput";
 
 export default function LoginPage() {
   const [mode, setMode] = useState<"signin" | "register">("signin");
@@ -90,15 +91,14 @@ export default function LoginPage() {
               <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Password
               </label>
-              <input
+              <PasswordInput
                 ref={passwordRef}
-                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading}
                 placeholder={mode === "register" ? "At least 8 characters" : "••••••••"}
-                className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
+                className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
               />
             </div>
 

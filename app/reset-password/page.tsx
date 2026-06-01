@@ -4,6 +4,7 @@ import { useState, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { usePreventPasswordCopy } from "@/lib/hooks/use-prevent-password-copy";
+import PasswordInput from "@/components/PasswordInput";
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -77,16 +78,15 @@ function ResetPasswordForm() {
         <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
           New password
         </label>
-        <input
+        <PasswordInput
           ref={passwordRef}
-          type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
           minLength={8}
           disabled={loading}
           placeholder="At least 8 characters"
-          className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
+          className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
         />
       </div>
 
@@ -94,16 +94,15 @@ function ResetPasswordForm() {
         <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
           Confirm password
         </label>
-        <input
+        <PasswordInput
           ref={confirmRef}
-          type="password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           required
           minLength={8}
           disabled={loading}
           placeholder="••••••••"
-          className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
+          className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
         />
       </div>
 
