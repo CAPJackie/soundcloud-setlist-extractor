@@ -2,8 +2,8 @@ import { getSetlistById } from "@/lib/setlist-cache";
 import { auth } from "@/auth";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import TrackCard from "@/components/TrackCard";
 import LikeButton from "@/components/LikeButton";
+import SetPlayer from "@/components/SetPlayer";
 
 export default async function SetDetailPage({
   params,
@@ -59,17 +59,7 @@ export default async function SetDetailPage({
           </a>
         </div>
 
-        <div className="flex flex-col gap-2">
-          {set.tracks.map((track, i) => (
-            <TrackCard
-              key={`${track.title}-${i}`}
-              index={i + 1}
-              artist={track.artist}
-              title={track.title}
-              timestamp={track.timestamp}
-            />
-          ))}
-        </div>
+        <SetPlayer url={set.url} tracks={set.tracks} />
       </div>
     </main>
   );
