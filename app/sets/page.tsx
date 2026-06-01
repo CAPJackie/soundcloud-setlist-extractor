@@ -4,8 +4,6 @@ import Link from "next/link";
 import LikeButton from "@/components/LikeButton";
 import { ObjectId } from "mongodb";
 
-export const dynamic = "force-dynamic";
-
 export default async function SetsPage() {
   const [sets, session] = await Promise.all([getAllSetlists(), auth()]);
   const userEmail = session?.user?.email ?? null;

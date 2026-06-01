@@ -5,8 +5,6 @@ import Link from "next/link";
 import LikeButton from "@/components/LikeButton";
 import { ObjectId } from "mongodb";
 
-export const dynamic = "force-dynamic";
-
 export default async function SavedSetsPage() {
   const session = await auth();
   if (!session?.user?.email) redirect("/login");

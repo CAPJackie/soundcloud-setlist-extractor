@@ -1,13 +1,12 @@
 "use client";
 
-import { forwardRef, useState } from "react";
+import { useState } from "react";
 
-type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, "type">;
+type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> & {
+  ref?: React.Ref<HTMLInputElement>;
+};
 
-const PasswordInput = forwardRef<HTMLInputElement, Props>(function PasswordInput(
-  { className, ...props },
-  ref
-) {
+function PasswordInput({ className, ref, ...props }: Props) {
   const [show, setShow] = useState(false);
 
   return (
@@ -41,6 +40,6 @@ const PasswordInput = forwardRef<HTMLInputElement, Props>(function PasswordInput
       </button>
     </div>
   );
-});
+}
 
 export default PasswordInput;
