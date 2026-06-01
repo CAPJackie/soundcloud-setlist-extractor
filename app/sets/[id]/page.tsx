@@ -1,7 +1,9 @@
 import { getSetlistById } from "@/lib/setlist-cache";
+import { auth } from "@/auth";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import TrackCard from "@/components/TrackCard";
+import LikeButton from "@/components/LikeButton";
 
 export default async function SetDetailPage({
   params,
@@ -9,8 +11,13 @@ export default async function SetDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const set = await getSetlistById(id);
+  const [set, session] = await Promise.all([getSetlistById(id), auth()]);
   if (!set) notFound();
+
+  const userEmail = session?.user?.email ?? null;
+  const isLiked = userEmail
+    ? (set.likedBy ?? []).includes(userEmail)
+    : false;
 
   const date = new Date(set.publishedAt ?? set.cachedAt).toLocaleDateString("en-US", {
     year: "numeric",
@@ -29,7 +36,12 @@ export default async function SetDetailPage({
         </Link>
 
         <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">{set.title}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50 flex-1 min-w-0">
+              {set.title}
+            </h1>
+            {userEmail && <LikeButton setlistId={id} initialLiked={isLiked} />}
+          </div>
           <div className="flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
             <span>{set.username}</span>
             <span>·</span>

@@ -8,6 +8,7 @@ const tabs = [
   { label: "Search", href: "/" },
   { label: "Sets", href: "/sets" },
   { label: "My Sets", href: "/my-sets" },
+  { label: "Profile", href: "/profile" },
 ];
 
 export default function TopNav() {

@@ -33,14 +33,41 @@ export async function GET(req: NextRequest) {
   const url = req.nextUrl.searchParams.get("url");
   if (!url) return new Response("Missing url param", { status: 400 });
 
-  console.log(`[extract] ${url} (user: ${userEmail ?? "anonymous"})`);
+  const isShortLink = url.startsWith("https://on.soundcloud.com/");
+  const isDirectLink = url.startsWith("https://soundcloud.com/");
 
-  if (!url.startsWith("https://soundcloud.com/")) {
+  if (!isShortLink && !isDirectLink) {
     return new Response(
       encode({ type: "error", message: "Please enter a valid SoundCloud URL" }),
       { headers: sseHeaders() }
     );
   }
+
+  let resolvedUrl = url;
+  if (isShortLink) {
+    try {
+      const res = await fetch(url, { method: "HEAD", redirect: "follow" });
+      resolvedUrl = cleanSoundCloudUrl(res.url);
+      console.log(`[extract] short link resolved: ${resolvedUrl}`);
+    } catch {
+      return new Response(
+        encode({ type: "error", message: "Could not resolve SoundCloud link." }),
+        { headers: sseHeaders() }
+      );
+    }
+    if (!resolvedUrl.startsWith("https://soundcloud.com/")) {
+      return new Response(
+        encode({ type: "error", message: "Please enter a valid SoundCloud URL" }),
+        { headers: sseHeaders() }
+      );
+    }
+  } else {
+    resolvedUrl = cleanSoundCloudUrl(url);
+  }
+
+  console.log(`[extract] ${resolvedUrl} (user: ${userEmail ?? "anonymous"})`);
+
+  const canonicalUrl = resolvedUrl;
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -58,7 +85,7 @@ export async function GET(req: NextRequest) {
       try {
         // --- Cache check ---
         emit({ type: "status", message: "Checking cache..." });
-        const cached = await getCachedSetlist(url).catch(() => null);
+        const cached = await getCachedSetlist(canonicalUrl).catch(() => null);
         if (cached) {
           emit({ type: "status", message: `Found cached result from ${cached.cachedAt.toLocaleDateString()}` });
           for (const t of cached.tracks) {
@@ -72,8 +99,8 @@ export async function GET(req: NextRequest) {
         // --- Fetch SoundCloud page ---
         emit({ type: "status", message: "Fetching SoundCloud page..." });
         const [html, track] = await Promise.all([
-          fetchSoundCloudPageHtml(url),
-          fetchSoundCloudTrack(url),
+          fetchSoundCloudPageHtml(canonicalUrl),
+          fetchSoundCloudTrack(canonicalUrl),
         ]);
 
         emit({ type: "status", message: `Found: ${track.title} by ${track.username}` });
@@ -90,7 +117,7 @@ export async function GET(req: NextRequest) {
             collectedTracks.push(t);
           }
           await saveSetlist({
-            url,
+            url: canonicalUrl,
             title: track.title,
             username: track.username,
             publishedAt: track.publishedAt,
@@ -200,7 +227,7 @@ export async function GET(req: NextRequest) {
         // Save to DB regardless of how many tracks we found
         if (collectedTracks.length > 0) {
           await saveSetlist({
-            url,
+            url: canonicalUrl,
             title: track.title,
             username: track.username,
             publishedAt: track.publishedAt,
@@ -219,6 +246,15 @@ export async function GET(req: NextRequest) {
   });
 
   return new Response(stream, { headers: sseHeaders() });
+}
+
+function cleanSoundCloudUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    return `${u.origin}${u.pathname}`;
+  } catch {
+    return url;
+  }
 }
 
 function sseHeaders(): Record<string, string> {

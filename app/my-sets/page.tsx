@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { getSetlistsByUser } from "@/lib/setlist-cache";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import LikeButton from "@/components/LikeButton";
 import { ObjectId } from "mongodb";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,7 @@ export default async function MySetsPage() {
   if (!session?.user?.email) redirect("/login");
 
   const sets = await getSetlistsByUser(session.user.email);
+  const userEmail = session.user.email;
 
   return (
     <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center px-4 py-10">
@@ -35,25 +37,29 @@ export default async function MySetsPage() {
                 month: "short",
                 day: "numeric",
               });
+              const isLiked = ((set.likedBy as string[] | undefined) ?? []).includes(userEmail);
+
               return (
-                <Link
-                  key={id}
-                  href={`/sets/${id}`}
-                  className="flex items-center justify-between gap-4 px-5 py-4 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-orange-400/60 transition group"
-                >
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-orange-500 transition">
-                      {set.title as string}
-                    </span>
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
-                      {set.username as string}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-4 shrink-0 text-xs text-zinc-400 dark:text-zinc-500">
-                    <span>{set.trackCount as number} tracks</span>
-                    <span>{date}</span>
-                  </div>
-                </Link>
+                <div key={id} className="flex items-center gap-2">
+                  <Link
+                    href={`/sets/${id}`}
+                    className="flex-1 flex items-center justify-between gap-4 px-5 py-4 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-orange-400/60 transition group min-w-0"
+                  >
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-orange-500 transition">
+                        {set.title as string}
+                      </span>
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                        {set.username as string}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4 shrink-0 text-xs text-zinc-400 dark:text-zinc-500">
+                      <span>{set.trackCount as number} tracks</span>
+                      <span>{date}</span>
+                    </div>
+                  </Link>
+                  <LikeButton setlistId={id} initialLiked={isLiked} />
+                </div>
               );
             })}
           </div>

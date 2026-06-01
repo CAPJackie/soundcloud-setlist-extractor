@@ -1,23 +1,28 @@
-import { getAllSetlists } from "@/lib/setlist-cache";
 import { auth } from "@/auth";
+import { getSetlistsLikedByUser } from "@/lib/setlist-cache";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import LikeButton from "@/components/LikeButton";
 import { ObjectId } from "mongodb";
 
 export const dynamic = "force-dynamic";
 
-export default async function SetsPage() {
-  const [sets, session] = await Promise.all([getAllSetlists(), auth()]);
-  const userEmail = session?.user?.email ?? null;
+export default async function SavedSetsPage() {
+  const session = await auth();
+  if (!session?.user?.email) redirect("/login");
+
+  const sets = await getSetlistsLikedByUser(session.user.email);
 
   return (
-    <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center px-4 py-10">
-      <div className="w-full max-w-2xl flex flex-col gap-6">
-        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">All Sets</h1>
+    <div className="flex flex-col gap-6">
+      <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">Saved Sets</h1>
+
+      {sets.length === 0 ? (
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          No saved sets yet. Click the heart icon on any set to save it here.
+        </p>
+      ) : (
         <div className="flex flex-col gap-2">
-          {sets.length === 0 && (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">No sets cached yet.</p>
-          )}
           {sets.map((set) => {
             const id = (set._id as unknown as ObjectId).toString();
             const date = new Date(
@@ -27,9 +32,6 @@ export default async function SetsPage() {
               month: "short",
               day: "numeric",
             });
-            const isLiked = userEmail
-              ? ((set.likedBy as string[] | undefined) ?? []).includes(userEmail)
-              : false;
 
             return (
               <div key={id} className="flex items-center gap-2">
@@ -50,12 +52,12 @@ export default async function SetsPage() {
                     <span>{date}</span>
                   </div>
                 </Link>
-                {userEmail && <LikeButton setlistId={id} initialLiked={isLiked} />}
+                <LikeButton setlistId={id} initialLiked={true} />
               </div>
             );
           })}
         </div>
-      </div>
-    </main>
+      )}
+    </div>
   );
 }
