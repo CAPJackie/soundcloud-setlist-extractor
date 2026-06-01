@@ -42,44 +42,58 @@ export default function SetPlayer({ url, tracks }: Props) {
   const pendingSeekRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const initWidget = () => {
-      if (!iframeRef.current || !window.SC) return;
+    let alive = true;
+
+    function initWidget() {
+      if (!alive || !iframeRef.current || !window.SC) return;
       const widget = window.SC.Widget(iframeRef.current);
       widgetRef.current = widget;
       widget.bind(window.SC.Widget.Events.READY, () => {
+        if (!alive) return;
         readyRef.current = true;
-        if (pendingSeekRef.current !== null) {
-          widget.seekTo(pendingSeekRef.current);
-          widget.play();
+        const pending = pendingSeekRef.current;
+        if (pending !== null) {
           pendingSeekRef.current = null;
+          widget.play();
+          setTimeout(() => { if (alive) widget.seekTo(pending); }, 200);
         }
       });
-    };
+    }
 
-    const existing = document.querySelector<HTMLScriptElement>(
+    if (window.SC) {
+      // API already available — init straight away
+      initWidget();
+      return () => { alive = false; };
+    }
+
+    // Script not ready yet — find or create the tag and wait for load
+    let script = document.querySelector<HTMLScriptElement>(
       'script[src*="w.soundcloud.com/player/api"]'
     );
-
-    if (existing) {
-      if (window.SC) initWidget();
-      else existing.addEventListener("load", initWidget);
-    } else {
-      const script = document.createElement("script");
+    if (!script) {
+      script = document.createElement("script");
       script.src = "https://w.soundcloud.com/player/api.js";
       script.async = true;
-      script.onload = initWidget;
       document.body.appendChild(script);
     }
+    script.addEventListener("load", initWidget);
+
+    return () => {
+      alive = false;
+      script!.removeEventListener("load", initWidget);
+    };
   }, []);
 
   function handleSeek(ts: string) {
     const ms = toMs(ts);
-    if (!readyRef.current || !widgetRef.current) {
+    const w = widgetRef.current;
+    if (!readyRef.current || !w) {
       pendingSeekRef.current = ms;
       return;
     }
-    widgetRef.current.seekTo(ms);
-    widgetRef.current.play();
+    // play() must come before seekTo(); give the player 200 ms to start
+    w.play();
+    setTimeout(() => w.seekTo(ms), 200);
   }
 
   const embedUrl =
@@ -88,14 +102,16 @@ export default function SetPlayer({ url, tracks }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      <iframe
-        ref={iframeRef}
-        src={embedUrl}
-        width="100%"
-        height="300"
-        allow="autoplay"
-        className="rounded-xl border border-zinc-100 dark:border-zinc-800 w-full"
-      />
+      <div className="sticky top-14 z-40 bg-zinc-50 dark:bg-zinc-950 pt-2 pb-3 shadow-[0_4px_12px_-2px] shadow-zinc-200/80 dark:shadow-zinc-950/80">
+        <iframe
+          ref={iframeRef}
+          src={embedUrl}
+          width="100%"
+          height="300"
+          allow="autoplay"
+          className="rounded-xl border border-zinc-100 dark:border-zinc-800 w-full"
+        />
+      </div>
 
       <div className="flex flex-col gap-2">
         {tracks.map((track, i) => (

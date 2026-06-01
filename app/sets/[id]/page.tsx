@@ -49,14 +49,6 @@ export default async function SetDetailPage({
             <span>·</span>
             <span>{date}</span>
           </div>
-          <a
-            href={set.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-orange-500 hover:text-orange-400 transition w-fit mt-1"
-          >
-            Open on SoundCloud →
-          </a>
         </div>
 
         <SetPlayer url={set.url} tracks={set.tracks} />
