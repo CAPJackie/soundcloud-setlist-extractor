@@ -1,5 +1,7 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
+
 interface Props {
   onSubmit: (url: string) => void;
   loading: boolean;
@@ -20,14 +22,14 @@ export default function URLInput({ onSubmit, loading }: Props) {
         SoundCloud URL
       </label>
       <div className="flex gap-2">
-        <input
+        <Input
           id="url"
           name="url"
           type="url"
           required
           disabled={loading}
           placeholder="https://soundcloud.com/artist/set-name"
-          className="flex-1 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50 transition"
+          className="flex-1 rounded-xl h-auto px-4 py-3 text-sm placeholder:text-zinc-400 dark:placeholder:text-zinc-600 disabled:opacity-50"
         />
         <button
           type="submit"

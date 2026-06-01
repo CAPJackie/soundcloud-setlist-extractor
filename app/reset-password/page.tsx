@@ -1,53 +1,65 @@
 "use client";
 
-import { useState, useRef, Suspense } from "react";
+import { useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { usePreventPasswordCopy } from "@/lib/hooks/use-prevent-password-copy";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import PasswordInput from "@/components/PasswordInput";
+import { usePreventPasswordCopy } from "@/lib/hooks/use-prevent-password-copy";
+import { mergeRefs } from "@/lib/utils";
+
+const formSchema = z
+  .object({
+    password: z.string().min(8, "At least 8 characters"),
+    confirm: z.string(),
+  })
+  .refine((d) => d.password === d.confirm, {
+    message: "Passwords don't match",
+    path: ["confirm"],
+  });
+
+type FormData = z.infer<typeof formSchema>;
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get("token") ?? "";
 
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
-
   const passwordRef = useRef<HTMLInputElement>(null);
   const confirmRef = useRef<HTMLInputElement>(null);
   usePreventPasswordCopy([passwordRef, confirmRef]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password !== confirm) {
-      setError("Passwords don't match");
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    defaultValues: { password: "", confirm: "" },
+  });
+
+  const isSubmitting = form.formState.isSubmitting;
+  const done = form.formState.isSubmitSuccessful;
+
+  async function onSubmit(data: FormData) {
+    const res = await fetch("/api/auth/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, password: data.password }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      form.setError("root", { message: json.error ?? "Something went wrong" });
       return;
     }
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/auth/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Something went wrong");
-        return;
-      }
-      setDone(true);
-      setTimeout(() => router.push("/login"), 2500);
-    } catch {
-      setError("Something went wrong. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    setTimeout(() => router.push("/login"), 2500);
+  }
 
   if (!token) {
     return (
@@ -73,49 +85,61 @@ function ResetPasswordForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          New password
-        </label>
-        <PasswordInput
-          ref={passwordRef}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          minLength={8}
-          disabled={loading}
-          placeholder="At least 8 characters"
-          className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>New password</FormLabel>
+              <FormControl>
+                <PasswordInput
+                  {...field}
+                  ref={mergeRefs(field.ref, passwordRef)}
+                  disabled={isSubmitting}
+                  placeholder="At least 8 characters"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-      </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          Confirm password
-        </label>
-        <PasswordInput
-          ref={confirmRef}
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          required
-          minLength={8}
-          disabled={loading}
-          placeholder="••••••••"
-          className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
+        <FormField
+          control={form.control}
+          name="confirm"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Confirm password</FormLabel>
+              <FormControl>
+                <PasswordInput
+                  {...field}
+                  ref={mergeRefs(field.ref, confirmRef)}
+                  disabled={isSubmitting}
+                  placeholder="••••••••"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-      </div>
 
-      {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
+        {form.formState.errors.root && (
+          <p className="text-sm text-red-500 dark:text-red-400">
+            {form.formState.errors.root.message}
+          </p>
+        )}
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="mt-1 rounded-lg bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 text-sm font-semibold text-white transition"
-      >
-        {loading ? "Saving…" : "Set new password"}
-      </button>
-    </form>
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="mt-1 rounded-lg bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 text-sm font-semibold text-white transition"
+        >
+          {isSubmitting ? "Saving…" : "Set new password"}
+        </button>
+      </form>
+    </Form>
   );
 }
 

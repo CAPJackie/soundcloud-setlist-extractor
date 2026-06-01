@@ -1,21 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
-type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> & {
-  ref?: React.Ref<HTMLInputElement>;
-};
+type Props = Omit<React.ComponentProps<"input">, "type">;
 
 function PasswordInput({ className, ref, ...props }: Props) {
   const [show, setShow] = useState(false);
 
   return (
     <div className="relative">
-      <input
+      <Input
         {...props}
-        ref={ref}
+        ref={ref as React.Ref<HTMLInputElement>}
         type={show ? "text" : "password"}
-        className={`${className ?? ""} pr-10`}
+        className={cn("pr-10", className)}
       />
       <button
         type="button"
