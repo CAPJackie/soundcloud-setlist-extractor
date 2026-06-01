@@ -8,7 +8,7 @@ import {
 } from "@/lib/soundcloud";
 import { parseTracklist } from "@/lib/tracklist-parser";
 import { fetchM3u8Segments, findSegmentNearOffset, downloadSegmentBytes, INITIAL_OFFSET_SECS, TRACK_ESTIMATE_SECS, FALLBACK_STEP_SECS } from "@/lib/hls-chunks";
-import { identifyAudio, AcrRateLimitError } from "@/lib/acrcloud";
+import { identifyAudio, AcrRateLimitError, ACR_MAX_CALLS_PER_SESSION } from "@/lib/acrcloud";
 import { identifyWithAudd, AUDD_MAX_CALLS_PER_SESSION } from "@/lib/audd";
 import { getCachedSetlist, saveSetlist, CachedTrack } from "@/lib/setlist-cache";
 import { auth } from "@/auth";
@@ -33,6 +33,8 @@ export async function GET(req: NextRequest) {
   const url = req.nextUrl.searchParams.get("url");
   if (!url) return new Response("Missing url param", { status: 400 });
 
+  console.log(`[extract] ${url} (user: ${userEmail ?? "anonymous"})`);
+
   if (!url.startsWith("https://soundcloud.com/")) {
     return new Response(
       encode({ type: "error", message: "Please enter a valid SoundCloud URL" }),
@@ -44,7 +46,14 @@ export async function GET(req: NextRequest) {
     async start(controller) {
       let closed = false;
       const close = () => { if (!closed) { closed = true; controller.close(); } };
-      const emit = (event: SseEvent) => { if (!closed) controller.enqueue(encode(event)); };
+      const emit = (event: SseEvent) => {
+        if (!closed) controller.enqueue(encode(event));
+        if (event.type === "status") console.log(`[extract] ${event.message}`);
+        else if (event.type === "warning") console.warn(`[extract] WARN ${event.message}`);
+        else if (event.type === "error") console.error(`[extract] ERROR ${event.message}`);
+        else if (event.type === "track") console.log(`[extract] track: ${event.data.artist} — ${event.data.title}${event.data.timestamp ? ` @ ${event.data.timestamp}` : ""}`);
+        else if (event.type === "done") console.log(`[extract] done: ${event.total} tracks${event.cached ? " (cached)" : ""}`);
+      };
 
       try {
         // --- Cache check ---
@@ -140,8 +149,10 @@ export async function GET(req: NextRequest) {
         const visitedUrls = new Set<string>();
         let targetOffset = INITIAL_OFFSET_SECS;
         let auddCalls = 0;
+        let acrCalls = 0;
 
         while (targetOffset <= totalDuration) {
+          if (req.signal.aborted) break;
           const seg = findSegmentNearOffset(allSegments, targetOffset);
           if (!seg || visitedUrls.has(seg.url)) break;
           visitedUrls.add(seg.url);
@@ -151,6 +162,11 @@ export async function GET(req: NextRequest) {
 
           try {
             const bytes = await downloadSegmentBytes(seg.url);
+            if (acrCalls >= ACR_MAX_CALLS_PER_SESSION) {
+              emit({ type: "warning", message: `ACRCloud call limit reached (${ACR_MAX_CALLS_PER_SESSION} calls) — results may be incomplete.` });
+              break;
+            }
+            acrCalls++;
             let match: { artist: string; title: string } | null = await identifyAudio(bytes, seg.offsetSecs);
             if (!match && auddCalls < AUDD_MAX_CALLS_PER_SESSION) {
               auddCalls++;

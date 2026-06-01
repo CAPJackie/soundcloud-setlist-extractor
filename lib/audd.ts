@@ -28,10 +28,15 @@ export async function identifyWithAudd(audioBytes: Buffer): Promise<AuddMatch | 
   );
 
   try {
+    console.log(`[audd] fallback identify`);
     const res = await fetch("https://api.audd.io/", { method: "POST", body: form });
     if (!res.ok) return null;
     const json = (await res.json()) as AuddResponse;
-    if (json.status !== "success" || !json.result) return null;
+    if (json.status !== "success" || !json.result) {
+      console.log(`[audd] no match`);
+      return null;
+    }
+    console.log(`[audd] matched: "${json.result.title}" by ${json.result.artist}`);
     return {
       artist: json.result.artist,
       title: json.result.title,

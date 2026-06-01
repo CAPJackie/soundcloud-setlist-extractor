@@ -1,5 +1,7 @@
 import crypto from "crypto";
 
+export const ACR_MAX_CALLS_PER_SESSION = 200;
+
 export class AcrRateLimitError extends Error {
   constructor() {
     super("ACRCloud daily request limit reached");
@@ -67,6 +69,8 @@ export async function identifyAudio(
     "chunk.ts"
   );
 
+  console.log(`[acr] identify at ${Math.floor(offsetSecs / 60)}:${String(Math.floor(offsetSecs % 60)).padStart(2, "0")}`);
+
   const res = await fetch(`https://${host}${httpUri}`, {
     method: "POST",
     body: form,
@@ -75,14 +79,23 @@ export async function identifyAudio(
   if (!res.ok) return null;
 
   const json = (await res.json()) as AcrResponse;
-  if (json.status.code === 3003) throw new AcrRateLimitError();
-  if (json.status.code !== 0) return null;
+  if (json.status.code === 3003) {
+    console.error(`[acr] daily rate limit hit (3003)`);
+    throw new AcrRateLimitError();
+  }
+  if (json.status.code !== 0) {
+    console.log(`[acr] no match (code ${json.status.code}: ${json.status.msg})`);
+    return null;
+  }
 
   const music = json.metadata?.music?.[0];
   if (!music) return null;
 
+  const artist = music.artists?.map((a) => a.name).join(", ") ?? "Unknown Artist";
+  console.log(`[acr] matched: "${music.title}" by ${artist} (score: ${music.score ?? "?"})`);
+
   return {
-    artist: music.artists?.map((a) => a.name).join(", ") ?? "Unknown Artist",
+    artist,
     title: music.title ?? "Unknown Title",
     album: music.album?.name,
     offsetSecs,

@@ -29,6 +29,7 @@ export async function fetchSoundCloudTrack(url: string): Promise<SoundCloudTrack
   });
 
   if (!res.ok) throw new Error(`SoundCloud fetch failed: ${res.status}`);
+  console.log(`[soundcloud] fetched track page: ${url}`);
   const html = await res.text();
 
   const hydration = extractHydration(html);
@@ -40,7 +41,7 @@ export async function fetchSoundCloudTrack(url: string): Promise<SoundCloudTrack
 
   const createdAt = d.created_at ? new Date(String(d.created_at)) : null;
 
-  return {
+  const track = {
     title: String(d.title ?? ""),
     description: String(d.description ?? ""),
     duration: Number(d.duration ?? 0),
@@ -49,6 +50,8 @@ export async function fetchSoundCloudTrack(url: string): Promise<SoundCloudTrack
     username: String((d.user as Record<string, unknown>)?.username ?? ""),
     publishedAt: createdAt instanceof Date && !isNaN(createdAt.getTime()) ? createdAt : null,
   };
+  console.log(`[soundcloud] track: "${track.title}" by ${track.username}`);
+  return track;
 }
 
 function extractHydration(html: string): HydrationEntry[] {
@@ -71,6 +74,8 @@ export async function extractClientId(html: string): Promise<string | null> {
     ...html.matchAll(/src="(https:\/\/a-v2\.sndcdn\.com\/assets\/[^"]+\.js[^"]*)"/g),
   ].map((m) => m[1]);
 
+  console.log(`[soundcloud] extracting client_id (${scriptUrls.length} bundles)`);
+
   const results = await Promise.allSettled(
     scriptUrls.map(async (url) => {
       const res = await fetch(url, {
@@ -88,9 +93,13 @@ export async function extractClientId(html: string): Promise<string | null> {
   );
 
   for (const r of results) {
-    if (r.status === "fulfilled") return r.value;
+    if (r.status === "fulfilled") {
+      console.log(`[soundcloud] client_id found`);
+      return r.value;
+    }
   }
 
+  console.warn(`[soundcloud] client_id not found`);
   return null;
 }
 
@@ -118,7 +127,10 @@ export async function resolveStreamUrl(
     });
     if (!res.ok) return null;
     const json = (await res.json()) as { url?: string };
-    return json.url ?? null;
+    const streamUrl = json.url ?? null;
+    if (streamUrl) console.log(`[soundcloud] stream URL resolved`);
+    else console.warn(`[soundcloud] stream URL missing in response`);
+    return streamUrl;
   } catch {
     return null;
   }
