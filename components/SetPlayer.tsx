@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import {
+  addTracksToPlaylist,
+  clearToken,
+  createPlaylist,
+  openSpotifyAuthPopup,
+  searchTrack,
+  storeToken
+} from "@/lib/spotify";
+import { useEffect, useRef, useState } from "react";
 
 interface SCWidget {
   bind(event: string, fn: () => void): void;
@@ -33,13 +41,23 @@ interface Track {
 interface Props {
   url: string;
   tracks: Track[];
+  mixTitle?: string;
 }
 
-export default function SetPlayer({ url, tracks }: Props) {
+type ExportState = "idle" | "connecting" | "exporting" | "done" | "error";
+
+export default function SetPlayer({ url, tracks, mixTitle }: Props) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const widgetRef = useRef<SCWidget | null>(null);
   const readyRef = useRef(false);
   const pendingSeekRef = useRef<number | null>(null);
+
+  const [exportState, setExportState] = useState<ExportState>("idle");
+  const [exportProgress, setExportProgress] = useState({ current: 0, total: 0 });
+  const [spotifyFoundMap, setSpotifyFoundMap] = useState<Record<number, boolean>>({});
+  const [playlistUrl, setPlaylistUrl] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [foundCount, setFoundCount] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -61,12 +79,10 @@ export default function SetPlayer({ url, tracks }: Props) {
     }
 
     if (window.SC) {
-      // API already available — init straight away
       initWidget();
       return () => { alive = false; };
     }
 
-    // Script not ready yet — find or create the tag and wait for load
     let script = document.querySelector<HTMLScriptElement>(
       'script[src*="w.soundcloud.com/player/api"]'
     );
@@ -91,10 +107,75 @@ export default function SetPlayer({ url, tracks }: Props) {
       pendingSeekRef.current = ms;
       return;
     }
-    // play() must come before seekTo(); give the player 200 ms to start
     w.play();
     setTimeout(() => w.seekTo(ms), 200);
   }
+
+  const copyText = () => {
+    const text = tracks
+      .map((t, i) => `${i + 1}. ${t.artist} - ${t.title}${t.timestamp ? ` [${t.timestamp}]` : ""}`)
+      .join("\n");
+    navigator.clipboard.writeText(text);
+  };
+
+  const runExport = async (token: string) => {
+    setExportState("exporting");
+    setExportProgress({ current: 0, total: tracks.length });
+    setSpotifyFoundMap({});
+    setFoundCount(0);
+
+    const meRes = await fetch("https://api.spotify.com/v1/me", { headers: { Authorization: `Bearer ${token}` } });
+    const me = await meRes.json();
+    console.log("[spotify] me:", me.id, "product:", me.product, "country:", me.country);
+
+    const playlistName = mixTitle ?? "SoundCloud Setlist";
+    const { id: playlistId, url: playlistExternalUrl } = await createPlaylist(token, playlistName);
+
+    const uris: string[] = [];
+    const foundMap: Record<number, boolean> = {};
+    let found = 0;
+
+    for (let i = 0; i < tracks.length; i++) {
+      const t = tracks[i];
+      const uri = await searchTrack(token, t.artist, t.title);
+      foundMap[i] = uri !== null;
+      if (uri) {
+        uris.push(uri);
+        found++;
+      }
+      setSpotifyFoundMap({ ...foundMap });
+      setFoundCount(found);
+      setExportProgress({ current: i + 1, total: tracks.length });
+    }
+
+    if (uris.length > 0) {
+      await addTracksToPlaylist(token, playlistId, uris);
+    }
+
+    setPlaylistUrl(playlistExternalUrl);
+    setExportState("done");
+  };
+
+  const handleExport = async () => {
+    setExportError(null);
+    clearToken();
+    setExportState("connecting");
+    let token: string;
+    try {
+      token = await openSpotifyAuthPopup();
+      storeToken(token);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "Auth failed");
+      setExportState("error");
+      return;
+    }
+    try {
+      await runExport(token);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "Export failed");
+      setExportState("error");
+    }
+  };
 
   const embedUrl =
     `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}` +
@@ -113,13 +194,25 @@ export default function SetPlayer({ url, tracks }: Props) {
         />
       </div>
 
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+          {tracks.length} track{tracks.length !== 1 ? "s" : ""}
+        </h2>
+        <button
+          onClick={copyText}
+          className="text-xs text-orange-500 hover:text-orange-600 font-medium transition"
+        >
+          Copy all
+        </button>
+      </div>
+
       <div className="flex flex-col gap-2">
         {tracks.map((track, i) => (
           <div
             key={`${track.title}-${i}`}
             className="flex items-center gap-4 px-5 py-4 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900"
           >
-            <span className="text-xs font-mono text-zinc-400 dark:text-zinc-600 w-6 text-right shrink-0">
+            <span className={`text-xs font-mono w-6 text-right shrink-0 ${spotifyFoundMap[i] === false ? "text-red-500 dark:text-red-400" : "text-zinc-400 dark:text-zinc-600"}`}>
               {i + 1}
             </span>
 
@@ -143,6 +236,66 @@ export default function SetPlayer({ url, tracks }: Props) {
             )}
           </div>
         ))}
+      </div>
+
+      <div className="flex flex-col gap-2 pt-2">
+        {exportState === "idle" && (
+          <button
+            onClick={handleExport}
+            className="w-full rounded-xl bg-[#1DB954] hover:bg-[#1aa34a] text-white text-sm font-semibold py-3 transition"
+          >
+            Export to Spotify
+          </button>
+        )}
+
+        {exportState === "connecting" && (
+          <div className="flex items-center gap-2 justify-center py-3 text-sm text-zinc-500 dark:text-zinc-400">
+            <span className="inline-block w-3.5 h-3.5 rounded-full border-2 border-[#1DB954] border-t-transparent animate-spin shrink-0" />
+            Waiting for Spotify authorization...
+          </div>
+        )}
+
+        {exportState === "exporting" && (
+          <div className="flex items-center gap-2 justify-center py-3 text-sm text-zinc-500 dark:text-zinc-400">
+            <span className="inline-block w-3.5 h-3.5 rounded-full border-2 border-[#1DB954] border-t-transparent animate-spin shrink-0" />
+            Finding tracks... ({exportProgress.current}/{exportProgress.total})
+          </div>
+        )}
+
+        {exportState === "done" && playlistUrl && (
+          <div className="flex flex-col gap-2">
+            <div className="text-center text-sm text-zinc-500 dark:text-zinc-400">
+              {foundCount} of {tracks.length} tracks found on Spotify
+              {tracks.length - foundCount > 0 && (
+                <span className="text-red-500 dark:text-red-400 ml-1">
+                  ({tracks.length - foundCount} not found — shown in red)
+                </span>
+              )}
+            </div>
+            <a
+              href={playlistUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full rounded-xl bg-[#1DB954] hover:bg-[#1aa34a] text-white text-sm font-semibold py-3 transition text-center block"
+            >
+              Open Playlist on Spotify →
+            </a>
+          </div>
+        )}
+
+        {exportState === "error" && (
+          <div className="flex flex-col gap-2">
+            <div className="rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 px-5 py-3 text-sm text-red-600 dark:text-red-400">
+              {exportError}
+            </div>
+            <button
+              onClick={handleExport}
+              className="w-full rounded-xl bg-[#1DB954] hover:bg-[#1aa34a] text-white text-sm font-semibold py-3 transition"
+            >
+              Try again
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

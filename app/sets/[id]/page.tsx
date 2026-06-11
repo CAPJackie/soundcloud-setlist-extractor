@@ -51,7 +51,7 @@ export default async function SetDetailPage({
           </div>
         </div>
 
-        <SetPlayer url={set.url} tracks={set.tracks} />
+        <SetPlayer url={set.url} tracks={set.tracks} mixTitle={set.title} />
       </div>
     </main>
   );

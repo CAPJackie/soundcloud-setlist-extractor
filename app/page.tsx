@@ -84,6 +84,19 @@ export default function Home() {
         {/* Input */}
         <URLInput onSubmit={handleSubmit} loading={loading} />
 
+        {/* SoundCloud player */}
+        {currentUrl && (
+          <div className="sticky top-14 z-40 bg-zinc-50 dark:bg-zinc-950 pt-2 pb-3 shadow-[0_4px_12px_-2px] shadow-zinc-200/80 dark:shadow-zinc-950/80 -mt-6">
+            <iframe
+              src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(currentUrl)}&visual=true&auto_play=false&show_comments=false&hide_related=true`}
+              width="100%"
+              height="300"
+              allow="autoplay"
+              className="rounded-xl border border-zinc-100 dark:border-zinc-800 w-full"
+            />
+          </div>
+        )}
+
         {/* Results */}
         <TrackList
           tracks={tracks}
