@@ -23,7 +23,17 @@ async function generateCodeChallenge(verifier: string): Promise<string> {
 export async function openSpotifyAuthPopup(): Promise<string> {
   const verifier = generateCodeVerifier();
   const challenge = await generateCodeChallenge(verifier);
-  localStorage.setItem("spotify_verifier", verifier);
+  const relayKey = generateCodeVerifier(); // separate opaque key for the server relay
+
+  // The popup passes through a third-party origin (accounts.spotify.com), and
+  // browsers partition the resulting context: localStorage, BroadcastChannel,
+  // and window.opener.postMessage all silently fail to reach this window.
+  // We work around this with a server-side relay (POST + GET on /api/spotify-token).
+  //
+  // We pass BOTH the PKCE verifier and the relay key through OAuth `state`, so
+  // the popup can read them from its URL (no shared storage needed).
+  const stateObj = { v: verifier, k: relayKey };
+  const state = btoa(JSON.stringify(stateObj));
 
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
@@ -32,10 +42,9 @@ export async function openSpotifyAuthPopup(): Promise<string> {
     scope: SCOPES,
     code_challenge_method: "S256",
     code_challenge: challenge,
+    state,
     show_dialog: "true",
   });
-
-  localStorage.removeItem("spotify_auth_result");
 
   return new Promise((resolve, reject) => {
     const popup = window.open(
@@ -49,37 +58,33 @@ export async function openSpotifyAuthPopup(): Promise<string> {
       return;
     }
 
-    const onStorage = (e: StorageEvent) => {
-      if (e.key !== "spotify_auth_result") return;
-      const result = JSON.parse(e.newValue ?? "{}");
-      cleanup();
+    let settled = false;
+    const settle = (result: { token?: string; error?: string }) => {
+      if (settled) return;
+      settled = true;
+      clearInterval(timer);
       if (result.token) resolve(result.token);
       else reject(new Error(result.error ?? "Auth failed"));
     };
 
-    const timer = setInterval(() => {
-      if (popup.closed) {
-        cleanup();
-        reject(new Error("Auth window closed"));
-      }
+    // Poll the server relay for the token. The popup POSTs its result there.
+    const timer = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/spotify-token?key=${encodeURIComponent(relayKey)}`, {
+          cache: "no-store",
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.token) return settle({ token: data.token });
+          if (data.error) return settle({ error: data.error });
+        }
+      } catch {}
+      if (popup.closed) settle({ error: "Auth window closed" });
     }, 500);
-
-    const cleanup = () => {
-      clearInterval(timer);
-      window.removeEventListener("storage", onStorage);
-      localStorage.removeItem("spotify_auth_result");
-    };
-
-    window.addEventListener("storage", onStorage);
   });
 }
 
-export async function exchangeCode(code: string): Promise<string> {
-  const verifier = localStorage.getItem("spotify_verifier");
-  if (!verifier) throw new Error("No code verifier found");
-
-  console.log('test')
-
+export async function exchangeCode(code: string, verifier: string): Promise<string> {
   const res = await fetch("https://accounts.spotify.com/api/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -94,8 +99,6 @@ export async function exchangeCode(code: string): Promise<string> {
 
   if (!res.ok) throw new Error("Token exchange failed");
   const data = await res.json();
-  console.log("[spotify] granted scopes:", data.scope);
-  localStorage.removeItem("spotify_verifier");
   return data.access_token as string;
 }
 
