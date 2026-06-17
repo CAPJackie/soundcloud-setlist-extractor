@@ -18,6 +18,7 @@ export const maxDuration = 300;
 type SseEvent =
   | { type: "status"; message: string }
   | { type: "warning"; message: string }
+  | { type: "resolved"; url: string }
   | { type: "track"; data: { artist: string; title: string; timestamp?: string } }
   | { type: "error"; message: string }
   | { type: "done"; total: number; cached?: boolean; title?: string };
@@ -77,12 +78,16 @@ export async function GET(req: NextRequest) {
         if (!closed) controller.enqueue(encode(event));
         if (event.type === "status") console.log(`[extract] ${event.message}`);
         else if (event.type === "warning") console.warn(`[extract] WARN ${event.message}`);
+        else if (event.type === "resolved") console.log(`[extract] resolved url: ${event.url}`);
         else if (event.type === "error") console.error(`[extract] ERROR ${event.message}`);
         else if (event.type === "track") console.log(`[extract] track: ${event.data.artist} — ${event.data.title}${event.data.timestamp ? ` @ ${event.data.timestamp}` : ""}`);
         else if (event.type === "done") console.log(`[extract] done: ${event.total} tracks${event.cached ? " (cached)" : ""}`);
       };
 
       try {
+        if (canonicalUrl !== url) {
+          emit({ type: "resolved", url: canonicalUrl });
+        }
         // --- Cache check ---
         emit({ type: "status", message: "Checking cache..." });
         const cached = await getCachedSetlist(canonicalUrl).catch(() => null);
