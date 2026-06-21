@@ -7,7 +7,7 @@ import {
   getHlsTranscodings,
 } from "@/lib/soundcloud";
 import { parseTracklist } from "@/lib/tracklist-parser";
-import { fetchM3u8Segments, findSegmentNearOffset, downloadSegmentBytes, INITIAL_OFFSET_SECS, TRACK_ESTIMATE_SECS, FALLBACK_STEP_SECS } from "@/lib/hls-chunks";
+import { fetchM3u8Segments, findSegmentIndexNearOffset, downloadProbeBytes, INITIAL_OFFSET_SECS, TRACK_ESTIMATE_SECS, FALLBACK_STEP_SECS } from "@/lib/hls-chunks";
 import { identifyAudio, AcrRateLimitError, ACR_MAX_CALLS_PER_SESSION } from "@/lib/acrcloud";
 import { identifyWithAudd, AUDD_MAX_CALLS_PER_SESSION } from "@/lib/audd";
 import { getCachedSetlist, saveSetlist, CachedTrack } from "@/lib/setlist-cache";
@@ -185,15 +185,17 @@ export async function GET(req: NextRequest) {
 
         while (targetOffset <= totalDuration) {
           if (req.signal.aborted) break;
-          const seg = findSegmentNearOffset(allSegments, targetOffset);
-          if (!seg || visitedUrls.has(seg.url)) break;
+          const idx = findSegmentIndexNearOffset(allSegments, targetOffset);
+          if (idx < 0) break;
+          const seg = allSegments[idx];
+          if (visitedUrls.has(seg.url)) break;
           visitedUrls.add(seg.url);
 
           const minutes = Math.floor(seg.offsetSecs / 60);
           emit({ type: "status", message: `Identifying track at ~${minutes}:00...` });
 
           try {
-            const bytes = await downloadSegmentBytes(seg.url);
+            const bytes = await downloadProbeBytes(allSegments, idx);
             if (acrCalls >= ACR_MAX_CALLS_PER_SESSION) {
               emit({ type: "warning", message: `ACRCloud call limit reached (${ACR_MAX_CALLS_PER_SESSION} calls) — results may be incomplete.` });
               break;

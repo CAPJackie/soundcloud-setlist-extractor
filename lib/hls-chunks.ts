@@ -1,6 +1,7 @@
 export const INITIAL_OFFSET_SECS = 30;
 export const TRACK_ESTIMATE_SECS = 180;
 export const FALLBACK_STEP_SECS = 60;
+export const PROBE_SEGMENT_COUNT = 3;
 
 export interface HlsSegment {
   url: string;
@@ -68,6 +69,37 @@ export function findSegmentNearOffset(segments: HlsSegment[], targetSecs: number
     if (seg.offsetSecs >= targetSecs) return seg;
   }
   return segments[segments.length - 1];
+}
+
+export function findSegmentIndexNearOffset(segments: HlsSegment[], targetSecs: number): number {
+  if (segments.length === 0) return -1;
+  for (let i = 0; i < segments.length; i++) {
+    if (segments[i].offsetSecs >= targetSecs) return i;
+  }
+  return segments.length - 1;
+}
+
+export async function downloadProbeBytes(
+  segments: HlsSegment[],
+  startIndex: number,
+  count: number = PROBE_SEGMENT_COUNT
+): Promise<Buffer> {
+  const slice = segments.slice(startIndex, startIndex + count);
+  if (slice.length === 0) throw new Error("No segments available for probe");
+
+  const results = await Promise.allSettled(
+    slice.map((s) => downloadSegmentBytes(s.url))
+  );
+
+  const buffers: Buffer[] = [];
+  for (const r of results) {
+    if (r.status === "fulfilled") buffers.push(r.value);
+    else break; // stop at first gap to keep audio contiguous
+  }
+
+  if (buffers.length === 0) throw new Error("All probe segment downloads failed");
+  console.log(`[hls] probe: ${buffers.length}/${slice.length} segments joined`);
+  return Buffer.concat(buffers);
 }
 
 export async function downloadSegmentBytes(url: string): Promise<Buffer> {
