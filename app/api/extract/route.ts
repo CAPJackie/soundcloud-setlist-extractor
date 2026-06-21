@@ -182,6 +182,12 @@ export async function GET(req: NextRequest) {
         let targetOffset = INITIAL_OFFSET_SECS;
         let auddCalls = 0;
         let acrCalls = 0;
+        let acrPrimaryCalls = 0;
+        let acrRetryCalls = 0;
+        let probes = 0;
+        let matches = 0;
+        const formatMmSs = (secs: number) =>
+          `${String(Math.floor(secs / 60)).padStart(2, "0")}:${String(Math.floor(secs % 60)).padStart(2, "0")}`;
 
         while (targetOffset <= totalDuration) {
           if (req.signal.aborted) break;
@@ -201,6 +207,9 @@ export async function GET(req: NextRequest) {
             }
             const bytes = await downloadProbeBytes(allSegments, idx);
             acrCalls++;
+            acrPrimaryCalls++;
+            probes++;
+            console.log(`[extract] ACR call #${acrCalls} (primary) at ${formatMmSs(seg.offsetSecs)}`);
             let match: { artist: string; title: string } | null = await identifyAudio(bytes, seg.offsetSecs);
 
             // Retry-with-shift: if ACR missed, probe again ~25s later before giving up
@@ -217,6 +226,8 @@ export async function GET(req: NextRequest) {
                 try {
                   const retryBytes = await downloadProbeBytes(allSegments, retryIdx);
                   acrCalls++;
+                  acrRetryCalls++;
+                  console.log(`[extract] ACR call #${acrCalls} (retry +${SHIFT_RETRY_SECS}s) at ${formatMmSs(retrySeg.offsetSecs)}`);
                   const retryMatch = await identifyAudio(retryBytes, retrySeg.offsetSecs);
                   if (retryMatch) {
                     match = retryMatch;
@@ -238,12 +249,11 @@ export async function GET(req: NextRequest) {
 
             if (match && !seenTitles.has(match.title.toLowerCase())) {
               seenTitles.add(match.title.toLowerCase());
-              const mm = String(Math.floor(seg.offsetSecs / 60)).padStart(2, "0");
-              const ss = String(Math.floor(seg.offsetSecs % 60)).padStart(2, "0");
+              matches++;
               const t: CachedTrack = {
                 artist: match.artist,
                 title: match.title,
-                timestamp: `${mm}:${ss}`,
+                timestamp: formatMmSs(seg.offsetSecs),
               };
               collectedTracks.push(t);
               emit({ type: "track", data: t });
@@ -259,6 +269,12 @@ export async function GET(req: NextRequest) {
             targetOffset = seg.offsetSecs + FALLBACK_STEP_SECS;
           }
         }
+
+        const hitRate = acrCalls > 0 ? Math.round((matches / acrCalls) * 100) : 0;
+        console.log(
+          `[extract] cost summary: ACR=${acrCalls} (primary=${acrPrimaryCalls}, retry=${acrRetryCalls}), ` +
+          `AudD=${auddCalls}, matches=${matches}, probes=${probes}, retries=${acrRetryCalls}, hit-rate=${hitRate}%`
+        );
 
         // Save to DB regardless of how many tracks we found
         if (collectedTracks.length > 0) {
