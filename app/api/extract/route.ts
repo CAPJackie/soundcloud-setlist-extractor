@@ -7,7 +7,7 @@ import {
   getHlsTranscodings,
 } from "@/lib/soundcloud";
 import { parseTracklist } from "@/lib/tracklist-parser";
-import { fetchM3u8Segments, findSegmentIndexNearOffset, downloadProbeBytes, INITIAL_OFFSET_SECS, TRACK_ESTIMATE_SECS, FALLBACK_STEP_SECS } from "@/lib/hls-chunks";
+import { fetchM3u8Segments, findSegmentIndexNearOffset, downloadProbeBytes, INITIAL_OFFSET_SECS, TRACK_ESTIMATE_SECS, FALLBACK_STEP_SECS, SHIFT_RETRY_SECS } from "@/lib/hls-chunks";
 import { identifyAudio, AcrRateLimitError, ACR_MAX_CALLS_PER_SESSION } from "@/lib/acrcloud";
 import { identifyWithAudd, AUDD_MAX_CALLS_PER_SESSION } from "@/lib/audd";
 import { getCachedSetlist, saveSetlist, CachedTrack } from "@/lib/setlist-cache";
@@ -187,7 +187,7 @@ export async function GET(req: NextRequest) {
           if (req.signal.aborted) break;
           const idx = findSegmentIndexNearOffset(allSegments, targetOffset);
           if (idx < 0) break;
-          const seg = allSegments[idx];
+          let seg = allSegments[idx];
           if (visitedUrls.has(seg.url)) break;
           visitedUrls.add(seg.url);
 
@@ -195,13 +195,42 @@ export async function GET(req: NextRequest) {
           emit({ type: "status", message: `Identifying track at ~${minutes}:00...` });
 
           try {
-            const bytes = await downloadProbeBytes(allSegments, idx);
             if (acrCalls >= ACR_MAX_CALLS_PER_SESSION) {
               emit({ type: "warning", message: `ACRCloud call limit reached (${ACR_MAX_CALLS_PER_SESSION} calls) — results may be incomplete.` });
               break;
             }
+            const bytes = await downloadProbeBytes(allSegments, idx);
             acrCalls++;
             let match: { artist: string; title: string } | null = await identifyAudio(bytes, seg.offsetSecs);
+
+            // Retry-with-shift: if ACR missed, probe again ~25s later before giving up
+            if (!match) {
+              const retryIdx = findSegmentIndexNearOffset(allSegments, seg.offsetSecs + SHIFT_RETRY_SECS);
+              if (
+                retryIdx >= 0 &&
+                retryIdx !== idx &&
+                !visitedUrls.has(allSegments[retryIdx].url) &&
+                acrCalls < ACR_MAX_CALLS_PER_SESSION
+              ) {
+                const retrySeg = allSegments[retryIdx];
+                visitedUrls.add(retrySeg.url);
+                try {
+                  const retryBytes = await downloadProbeBytes(allSegments, retryIdx);
+                  acrCalls++;
+                  const retryMatch = await identifyAudio(retryBytes, retrySeg.offsetSecs);
+                  if (retryMatch) {
+                    match = retryMatch;
+                    seg = retrySeg;
+                  }
+                } catch (retryErr) {
+                  if (retryErr instanceof AcrRateLimitError) {
+                    emit({ type: "warning", message: "ACRCloud daily limit reached — results may be incomplete. Try again tomorrow." });
+                    break;
+                  }
+                }
+              }
+            }
+
             if (!match && auddCalls < AUDD_MAX_CALLS_PER_SESSION) {
               auddCalls++;
               match = await identifyWithAudd(bytes);
