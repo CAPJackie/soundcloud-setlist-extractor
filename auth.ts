@@ -1,10 +1,12 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
-import { findUserByEmail } from "@/lib/users";
+import { findUserByEmail, upsertGoogleUser } from "@/lib/users";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
+    Google,
     Credentials({
       credentials: {
         email: {},
@@ -16,7 +18,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!email || !password) return null;
 
         const user = await findUserByEmail(email);
-        if (!user) return null;
+        if (!user || !user.passwordHash) return null;
 
         const ok = await bcrypt.compare(password, user.passwordHash);
         if (!ok) return null;
@@ -28,6 +30,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: { signIn: "/login" },
   session: { strategy: "jwt" },
   callbacks: {
+    async signIn({ user, account }) {
+      if (account?.provider === "google" && user.email) {
+        await upsertGoogleUser(user.email);
+      }
+      return true;
+    },
+    async jwt({ token, user }) {
+      if (user?.email) {
+        token.email = user.email;
+      }
+      return token;
+    },
     authorized({ auth }) {
       return !!auth?.user;
     },

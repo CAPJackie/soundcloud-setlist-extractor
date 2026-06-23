@@ -2,7 +2,7 @@ import { getDb } from "./db";
 
 export interface User {
   email: string;
-  passwordHash: string;
+  passwordHash?: string;
   createdAt: Date;
 }
 
@@ -32,5 +32,14 @@ export async function updateUserPassword(email: string, passwordHash: string): P
   await col.updateOne(
     { email: email.toLowerCase().trim() },
     { $set: { passwordHash } }
+  );
+}
+
+export async function upsertGoogleUser(email: string): Promise<void> {
+  const col = await collection();
+  await col.updateOne(
+    { email: email.toLowerCase().trim() },
+    { $setOnInsert: { email: email.toLowerCase().trim(), createdAt: new Date() } },
+    { upsert: true }
   );
 }
