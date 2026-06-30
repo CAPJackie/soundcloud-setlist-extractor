@@ -1,6 +1,6 @@
 export const INITIAL_OFFSET_SECS = 30;
 export const TRACK_ESTIMATE_SECS = 180;
-export const FALLBACK_STEP_SECS = 60;
+export const FALLBACK_STEP_SECS = 90;
 export const PROBE_SEGMENT_COUNT = 3;
 export const SHIFT_RETRY_SECS = 25;
 
