@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import URLInput from "@/components/URLInput";
 import TrackList from "@/components/TrackList";
@@ -20,6 +21,15 @@ type SseEvent =
   | { type: "done"; total: number; title?: string };
 
 export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeInner />
+    </Suspense>
+  );
+}
+
+function HomeInner() {
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -78,6 +88,17 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    if (autoStartedRef.current) return;
+    const urlParam = searchParams.get("url");
+    if (urlParam) {
+      autoStartedRef.current = true;
+      handleSubmit(urlParam);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

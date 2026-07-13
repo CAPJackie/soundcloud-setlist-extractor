@@ -8,6 +8,7 @@ import {
   searchTrack,
   storeToken
 } from "@/lib/spotify";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 interface SCWidget {
@@ -58,6 +59,19 @@ export default function SetPlayer({ url, tracks, mixTitle }: Props) {
   const [playlistUrl, setPlaylistUrl] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [foundCount, setFoundCount] = useState(0);
+  const [resetting, setResetting] = useState(false);
+  const router = useRouter();
+
+  const resetCache = async () => {
+    if (resetting) return;
+    setResetting(true);
+    try {
+      await fetch(`/api/cache?url=${encodeURIComponent(url)}`, { method: "DELETE" });
+      router.push(`/?url=${encodeURIComponent(url)}`);
+    } finally {
+      setResetting(false);
+    }
+  };
 
   useEffect(() => {
     let alive = true;
@@ -198,12 +212,22 @@ export default function SetPlayer({ url, tracks, mixTitle }: Props) {
         <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
           {tracks.length} track{tracks.length !== 1 ? "s" : ""}
         </h2>
-        <button
-          onClick={copyText}
-          className="text-xs text-orange-500 hover:text-orange-600 font-medium transition"
-        >
-          Copy all
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={resetCache}
+            disabled={resetting}
+            className="text-xs text-zinc-400 hover:text-red-500 dark:hover:text-red-400 font-medium transition disabled:opacity-40"
+            title="Delete cached tracklist and re-extract"
+          >
+            {resetting ? "Resetting..." : "Reset cache"}
+          </button>
+          <button
+            onClick={copyText}
+            className="text-xs text-orange-500 hover:text-orange-600 font-medium transition"
+          >
+            Copy all
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-2">

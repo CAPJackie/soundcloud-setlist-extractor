@@ -30,8 +30,6 @@ interface Props {
 
 type ExportState = "idle" | "connecting" | "exporting" | "done" | "error";
 
-const isDev = process.env.NODE_ENV === "development";
-
 export default function TrackList({ tracks, status, loading, error, total, currentUrl, mixTitle, onCacheReset }: Props) {
   const [freshIdx, setFreshIdx] = useState<number>(-1);
   const [resetting, setResetting] = useState(false);
@@ -181,12 +179,12 @@ export default function TrackList({ tracks, status, loading, error, total, curre
                 : `${tracks.length} track${tracks.length !== 1 ? "s" : ""} so far`}
             </h2>
             <div className="flex items-center gap-3">
-              {isDev && currentUrl && !loading && (
+              {currentUrl && !loading && (
                 <button
                   onClick={resetCache}
                   disabled={resetting}
                   className="text-xs text-zinc-400 hover:text-red-500 dark:hover:text-red-400 font-medium transition disabled:opacity-40"
-                  title="Reset MongoDB cache for this URL (dev only)"
+                  title="Reset MongoDB cache for this URL"
                 >
                   {resetting ? "Resetting..." : "Reset cache"}
                 </button>
