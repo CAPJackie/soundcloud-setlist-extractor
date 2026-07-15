@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   const user = await findUserByEmail(session.user.email);
   if (!user) return Response.json({ error: "User not found" }, { status: 404 });
 
-  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash!);
   if (!valid) return Response.json({ error: "Current password is incorrect" }, { status: 400 });
 
   if (!newPassword || newPassword.length < 8)
