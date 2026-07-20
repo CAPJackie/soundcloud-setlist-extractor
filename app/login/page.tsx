@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { signIn, useSession } from "next-auth/react";
 
 function GoogleIcon() {
   return (
@@ -55,6 +56,15 @@ const registerSchema = z.object({
 type FormData = z.infer<typeof signInSchema>;
 
 export default function LoginPage() {
+  const { status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.replace("/");
+    }
+  }, [status, router]);
+
   const [mode, setMode] = useState<"signin" | "register">("signin");
   const modeRef = useRef(mode);
   modeRef.current = mode;
