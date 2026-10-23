@@ -12,6 +12,9 @@ import { identifyAudio, AcrRateLimitError, ACR_MAX_CALLS_PER_SESSION } from "@/l
 import { identifyWithAudd, AUDD_MAX_CALLS_PER_SESSION } from "@/lib/audd";
 import { getCachedSetlist, saveSetlist, CachedTrack } from "@/lib/setlist-cache";
 import { auth } from "@/auth";
+import { checkAndRecordRateLimit } from "@/lib/rate-limit";
+import { getQuota, incrementMonthlyUsage } from "@/lib/usage";
+import { isAcrBudgetExceeded, addAcrCalls } from "@/lib/budget";
 
 export const maxDuration = 300;
 
@@ -30,6 +33,23 @@ function encode(event: SseEvent): string {
 export async function GET(req: NextRequest) {
   const session = await auth();
   const userEmail = session?.user?.email ?? undefined;
+
+  // Extraction is a metered, authenticated action.
+  if (!userEmail) {
+    return new Response(
+      encode({ type: "error", message: "Please sign in to extract setlists." }),
+      { status: 401, headers: sseHeaders() }
+    );
+  }
+
+  // Anti-abuse burst limiter (distinct from the monthly billing quota below).
+  const withinRate = await checkAndRecordRateLimit(userEmail);
+  if (!withinRate) {
+    return new Response(
+      encode({ type: "error", message: "You're going too fast — please wait a moment and try again." }),
+      { status: 429, headers: sseHeaders() }
+    );
+  }
 
   const url = req.nextUrl.searchParams.get("url");
   if (!url) return new Response("Missing url param", { status: 400 });
@@ -101,6 +121,25 @@ export async function GET(req: NextRequest) {
           return;
         }
 
+        // --- Cache miss: this is a real (billable) extraction. Enforce quota + global budget. ---
+        const quota = await getQuota(userEmail);
+        if (!quota.allowed) {
+          emit({
+            type: "error",
+            message:
+              quota.plan === "pro"
+                ? `You've reached your monthly limit of ${quota.limit} extractions.`
+                : `You've used all ${quota.limit} free extractions this month. Upgrade to Pro for more.`,
+          });
+          close();
+          return;
+        }
+        if (await isAcrBudgetExceeded()) {
+          emit({ type: "error", message: "The service is temporarily at capacity. Please try again later." });
+          close();
+          return;
+        }
+
         // --- Fetch SoundCloud page ---
         emit({ type: "status", message: "Fetching SoundCloud page..." });
         const [html, track] = await Promise.all([
@@ -128,6 +167,7 @@ export async function GET(req: NextRequest) {
             publishedAt: track.publishedAt,
             tracks: collectedTracks,
           }, userEmail).catch(() => {});
+          await incrementMonthlyUsage(userEmail).catch(() => {});
           emit({ type: "done", total: collectedTracks.length, title: track.title });
           close();
           return;
@@ -276,6 +316,9 @@ export async function GET(req: NextRequest) {
           `AudD=${auddCalls}, matches=${matches}, probes=${probes}, retries=${acrRetryCalls}, hit-rate=${hitRate}%`
         );
 
+        // Record ACR spend against the global daily budget regardless of outcome.
+        await addAcrCalls(acrCalls).catch(() => {});
+
         // Save to DB regardless of how many tracks we found
         if (collectedTracks.length > 0) {
           await saveSetlist({
@@ -285,6 +328,7 @@ export async function GET(req: NextRequest) {
             publishedAt: track.publishedAt,
             tracks: collectedTracks,
           }, userEmail).catch(() => {});
+          await incrementMonthlyUsage(userEmail).catch(() => {});
         }
 
         emit({ type: "done", total: collectedTracks.length, title: track.title });

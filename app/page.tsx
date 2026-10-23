@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import URLInput from "@/components/URLInput";
 import TrackList from "@/components/TrackList";
+import UsageBanner from "@/components/UsageBanner";
 
 interface Track {
   artist: string;
@@ -37,6 +38,7 @@ function HomeInner() {
   const [total, setTotal] = useState<number | null>(null);
   const [currentUrl, setCurrentUrl] = useState<string | null>(null);
   const [mixTitle, setMixTitle] = useState<string | null>(null);
+  const [usageTick, setUsageTick] = useState(0);
 
   const handleSubmit = useCallback(async (url: string) => {
     setLoading(true);
@@ -87,12 +89,16 @@ function HomeInner() {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setLoading(false);
+      setUsageTick((n) => n + 1);
     }
   }, []);
 
   const autoStartedRef = useRef(false);
   useEffect(() => {
     if (autoStartedRef.current) return;
+    if (searchParams.get("upgraded")) {
+      toast.success("Welcome to Pro! Your plan is now active.");
+    }
     const urlParam = searchParams.get("url");
     if (urlParam) {
       autoStartedRef.current = true;
@@ -105,7 +111,15 @@ function HomeInner() {
     <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center px-4 py-10">
       <div className="w-full max-w-2xl flex flex-col gap-10">
         {/* Input */}
-        <URLInput onSubmit={handleSubmit} loading={loading} />
+        <div className="flex flex-col gap-3">
+          <URLInput onSubmit={handleSubmit} loading={loading} />
+          <UsageBanner refreshKey={usageTick} />
+          <p className="text-xs text-zinc-400 dark:text-zinc-600">
+            Not affiliated with SoundCloud. For personal use only. See our{" "}
+            <a href="/terms" className="underline hover:text-zinc-500">Terms</a> and{" "}
+            <a href="/privacy" className="underline hover:text-zinc-500">Privacy Policy</a>.
+          </p>
+        </div>
 
         {/* SoundCloud player */}
         {currentUrl && (

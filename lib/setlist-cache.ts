@@ -128,12 +128,3 @@ export async function getSetlistsLikedByUser(email: string) {
     ])
     .toArray();
 }
-
-export async function backfillSearchedBy(email: string): Promise<number> {
-  const col = await collection();
-  const result = await col.updateMany(
-    { searchedBy: { $exists: false } },
-    { $set: { searchedBy: [email] } }
-  );
-  return result.modifiedCount;
-}

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { isEmailWhitelisted } from "@/lib/whitelist";
+import { isRegistrationAllowed } from "@/lib/whitelist";
 import { findUserByEmail, createUser } from "@/lib/users";
 
 export async function POST(req: Request) {
@@ -12,8 +12,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
   }
 
-  if (!isEmailWhitelisted(email)) {
-    return NextResponse.json({ error: "Email not authorized" }, { status: 403 });
+  if (!isRegistrationAllowed(email)) {
+    return NextResponse.json({ error: "Registration is currently invite-only" }, { status: 403 });
   }
 
   const existing = await findUserByEmail(email);

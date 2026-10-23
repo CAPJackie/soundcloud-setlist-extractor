@@ -9,6 +9,7 @@ import {
   storeToken
 } from "@/lib/spotify";
 import { useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import TrackCard from "./TrackCard";
 
 interface Track {
@@ -31,6 +32,8 @@ interface Props {
 type ExportState = "idle" | "connecting" | "exporting" | "done" | "error";
 
 export default function TrackList({ tracks, status, loading, error, total, currentUrl, mixTitle, onCacheReset }: Props) {
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.isAdmin ?? false;
   const [freshIdx, setFreshIdx] = useState<number>(-1);
   const [resetting, setResetting] = useState(false);
   const prevLen = useRef(0);
@@ -179,12 +182,12 @@ export default function TrackList({ tracks, status, loading, error, total, curre
                 : `${tracks.length} track${tracks.length !== 1 ? "s" : ""} so far`}
             </h2>
             <div className="flex items-center gap-3">
-              {currentUrl && !loading && (
+              {currentUrl && !loading && isAdmin && (
                 <button
                   onClick={resetCache}
                   disabled={resetting}
                   className="text-xs text-zinc-400 hover:text-red-500 dark:hover:text-red-400 font-medium transition disabled:opacity-40"
-                  title="Reset MongoDB cache for this URL"
+                  title="Reset MongoDB cache for this URL (admin)"
                 >
                   {resetting ? "Resetting..." : "Reset cache"}
                 </button>

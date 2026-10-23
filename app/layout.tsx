@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Roboto } from "next/font/google";
 import "./globals.css";
 import TopNav from "@/components/TopNav";
+import Footer from "@/components/Footer";
 import SessionProvider from "@/components/SessionProvider";
 import { auth } from "@/auth";
 import { Toaster } from "sonner";
@@ -38,6 +39,7 @@ export default async function RootLayout({
           <div className={showNav ? "pt-14 flex flex-col flex-1" : "flex flex-col flex-1"}>
             {children}
           </div>
+          <Footer />
         </SessionProvider>
       </body>
     </html>

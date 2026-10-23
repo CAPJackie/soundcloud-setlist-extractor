@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { findUserByEmail, upsertGoogleUser } from "@/lib/users";
+import { isAdmin } from "@/lib/roles";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -40,7 +41,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user?.email) {
         token.email = user.email;
       }
+      token.isAdmin = isAdmin(token.email as string | undefined);
       return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.isAdmin = Boolean(token.isAdmin);
+      }
+      return session;
     },
     authorized({ auth }) {
       return !!auth?.user;

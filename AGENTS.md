@@ -32,7 +32,7 @@ app/
   globals.css               Tailwind v4 import only
   api/
     extract/route.ts        GET — SSE streaming endpoint, orchestrates both tiers
-    cache/route.ts          DELETE — clears MongoDB cache for a URL (dev only, returns 403 in prod)
+    cache/route.ts          DELETE — clears MongoDB cache for a URL (admin-only, returns 403 for non-admins)
   spotify/
     callback/page.tsx       OAuth callback — exchanges PKCE code, writes token to localStorage, closes popup
 
@@ -47,7 +47,7 @@ lib/
 
 components/
   URLInput.tsx              Controlled URL form, disabled during loading
-  TrackList.tsx             Renders track list + "Copy all" + "Export to Spotify" + dev-only "Reset cache"
+  TrackList.tsx             Renders track list + "Copy all" + "Export to Spotify" + admin-only "Reset cache"
   TrackCard.tsx             Single track row: number (red if not found on Spotify), timestamp, title, artist
 ```
 
@@ -108,6 +108,30 @@ NEXT_PUBLIC_SPOTIFY_REDIRECT_URI=http://127.0.0.1:3000/spotify/callback
 
 ACRCloud free tier: 20,000 requests. At 80s sampling a 2-hour mix ≈ 90 requests → ~220 full sets before any charges.
 
+See `.env.example` for the full list, including auth (`AUTH_*`), `ADMIN_EMAILS`, `RESEND_API_KEY`, Stripe (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_PRO`), and metering overrides (`FREE_MONTHLY_LIMIT`, `PRO_MONTHLY_LIMIT`, `RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_SECS`, `ACR_DAILY_BUDGET`).
+
+---
+
+## Monetization, roles & metering
+
+Extraction (`/api/extract`) is authenticated and metered. The gate order in `route.ts` is:
+auth (401) → per-user burst rate limit (429, `lib/rate-limit.ts`) → cache check (free, never metered) →
+on cache miss only: monthly quota (`lib/usage.ts`) + global daily ACRCloud budget kill-switch
+(`lib/budget.ts`). Usage is incremented only on a successful (uncached) extraction; ACRCloud calls are
+recorded against the daily budget after the fingerprinting loop.
+
+- **Plans:** `users.plan` = `free | pro` (default free). Free = `FREE_MONTHLY_LIMIT` (5) extractions/month;
+  Pro = `PRO_MONTHLY_LIMIT` (100). `GET /api/usage` returns the current quota for the UI (`UsageBanner`).
+- **Billing (Stripe):** `POST /api/billing/checkout` (subscription Checkout), `POST /api/billing/portal`
+  (manage/cancel), `POST /api/billing/webhook` (flips `users.plan` on subscription events — excluded from
+  auth middleware in `proxy.ts`, needs the raw body for signature verification). Helpers in `lib/stripe.ts`.
+- **Collections:** `usage` (`{_id:"email:yyyymm", extractions}`), `rate_events` (TTL), `budget`
+  (`{_id:"acr:yyyymmdd", count}`) — all MongoDB, no extra infra.
+- **Roles:** admins via `ADMIN_EMAILS`; `isAdmin()` in `lib/roles.ts`, `requireAdmin()` in
+  `lib/require-admin.ts`. `/pricing`, `/terms`, `/privacy` are public (excluded in `proxy.ts`).
+- **Registration:** open by default; set `EMAIL_WHITELIST` to restrict to a closed beta
+  (`isRegistrationAllowed` in `lib/whitelist.ts`).
+
 ---
 
 ## Dev workflow
@@ -117,8 +141,8 @@ npm run dev        # start dev server on :3000
 ```
 
 - Access the app at `http://127.0.0.1:3000` (not `localhost`) — Spotify's redirect URI policy requires an explicit loopback IP, not the `localhost` hostname.
-- The "Reset cache" button next to the track count is **dev-only** — it calls `DELETE /api/cache?url=...` and clears the MongoDB document so you can re-run extraction on the same URL.
-- `NODE_ENV === 'development'` guard is in both the button render (`TrackList.tsx`) and the route handler (`cache/route.ts`).
+- The "Reset cache" button next to the track count is **admin-only** — it calls `DELETE /api/cache?url=...` and clears the MongoDB document so you can re-run extraction on the same URL.
+- Admin access is controlled by `ADMIN_EMAILS` (comma-separated env). `isAdmin()` lives in `lib/roles.ts`; the auth-aware `requireAdmin()` (used by `/api/cache`) lives in `lib/require-admin.ts`. The session exposes `session.user.isAdmin` (set in `auth.ts`), which `TrackList.tsx` uses to gate the button render.
 
 ---
 
