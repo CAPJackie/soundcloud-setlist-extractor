@@ -1,12 +1,12 @@
 export const INITIAL_OFFSET_SECS = 30;
-export const TRACK_ESTIMATE_SECS = 180;
-export const FALLBACK_STEP_SECS = 90;
 export const PROBE_SEGMENT_COUNT = 3;
 export const SHIFT_RETRY_SECS = 25;
 
 export interface HlsSegment {
   url: string;
   offsetSecs: number;
+  /** fMP4 (AAC) streams: init segment that must precede media fragments to be decodable. */
+  initUrl?: string;
 }
 
 export async function fetchM3u8Segments(m3u8Url: string): Promise<HlsSegment[]> {
@@ -33,16 +33,20 @@ function parseSegments(text: string, baseUrl: string): HlsSegment[] {
   const segments: HlsSegment[] = [];
   let offsetSecs = 0;
   let pendingDuration = 0;
+  let initUrl: string | undefined;
 
   const base = new URL(baseUrl);
 
   for (const line of lines) {
-    if (line.startsWith("#EXTINF:")) {
+    if (line.startsWith("#EXT-X-MAP:")) {
+      const uri = line.match(/URI="([^"]+)"/)?.[1];
+      if (uri) initUrl = uri.startsWith("http") ? uri : new URL(uri, base).toString();
+    } else if (line.startsWith("#EXTINF:")) {
       const dur = parseFloat(line.slice(8).split(",")[0]);
       pendingDuration = isNaN(dur) ? 10 : dur;
     } else if (line && !line.startsWith("#")) {
       const segUrl = line.startsWith("http") ? line : new URL(line, base).toString();
-      segments.push({ url: segUrl, offsetSecs });
+      segments.push({ url: segUrl, offsetSecs, initUrl });
       offsetSecs += pendingDuration;
       pendingDuration = 0;
     }
@@ -99,8 +103,35 @@ export async function downloadProbeBytes(
   }
 
   if (buffers.length === 0) throw new Error("All probe segment downloads failed");
-  console.log(`[hls] probe: ${buffers.length}/${slice.length} segments joined`);
+
+  // fMP4 fragments are undecodable without their init segment (codec config lives there).
+  const initUrl = slice[0].initUrl;
+  if (initUrl) buffers.unshift(await downloadInitBytes(initUrl));
+
+  console.log(`[hls] probe: ${buffers.length - (initUrl ? 1 : 0)}/${slice.length} segments joined${initUrl ? " (+init)" : ""}`);
   return Buffer.concat(buffers);
+}
+
+const initCache = new Map<string, Promise<Buffer>>();
+
+function downloadInitBytes(url: string): Promise<Buffer> {
+  let p = initCache.get(url);
+  if (!p) {
+    p = downloadSegmentBytes(url).catch((err) => {
+      initCache.delete(url);
+      throw err;
+    });
+    initCache.set(url, p);
+    if (initCache.size > 50) initCache.delete(initCache.keys().next().value!);
+  }
+  return p;
+}
+
+/** Detects container so uploads are labelled correctly (fMP4 has "ftyp" at byte 4). */
+export function audioFileInfo(bytes: Buffer): { mime: string; filename: string } {
+  return bytes.length >= 8 && bytes.toString("latin1", 4, 8) === "ftyp"
+    ? { mime: "audio/mp4", filename: "sample.m4a" }
+    : { mime: "audio/mpeg", filename: "sample.mp3" };
 }
 
 export async function downloadSegmentBytes(url: string): Promise<Buffer> {

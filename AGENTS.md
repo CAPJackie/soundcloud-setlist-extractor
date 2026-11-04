@@ -15,7 +15,7 @@ Browser
        ├─ Tier 1: parse mix description with regex (instant)
        │    └─ if ≥3 tracks found → save to MongoDB → done
        └─ Tier 2: audio fingerprinting via ACRCloud
-            ├─ resolve HLS m3u8 → sample one segment every SAMPLE_INTERVAL_SECS seconds
+            ├─ resolve HLS m3u8 → adaptive probes (lib/sampling-plan.ts decides each next offset)
             ├─ POST each segment to ACRCloud → identify {artist, title}
             └─ save all found tracks to MongoDB → done
 Second lookup for same URL: MongoDB cache hit → skip all extraction, stream instantly
@@ -71,10 +71,17 @@ Regex patterns (in priority order):
 Strips junk (URLs, social handles, "FREE DOWNLOAD"), deduplicates results.
 
 ### `lib/hls-chunks.ts`
-- `SAMPLE_INTERVAL_SECS = 80` — one audio sample every 80 seconds of mix time. Adjust here to trade ACRCloud request count vs. coverage.
 - `fetchM3u8Segments` — handles both master playlists (picks first variant) and media playlists, returns `{url, offsetSecs}[]`.
-- `sampleSegments` — picks one segment per `intervalSecs` window.
+- `downloadProbeBytes` — joins ~3 consecutive segments (~30s) into one sample; prepends the fMP4 init segment for AAC streams.
 - `downloadSegmentBytes` — returns a raw `Buffer` of the `.ts` segment.
+
+### `lib/sampling-plan.ts`
+Pure logic deciding where the next probe goes (no I/O; easy to test).
+- After a match, ACRCloud's `play_offset_ms` / `duration_ms` give the song's remaining time. It's an **upper bound only**: the jump is `remaining − 90s outro margin`, clamped to 30–180s. Metadata can only shorten the jump vs. the old fixed 180s, never lengthen it.
+- Two matches of the same song give the real playback rate (pitch/tempo). Rate outside 0.85–1.15 = hot cue or loop → song length ignored for that song; re-check every 60s.
+- Miss: retry +25s once; if both miss → jump 180s (likely unknown/unreleased track).
+- Sparse mode: after 15 calls with <10% recognized, no retries and 180s steps on miss (underground sets full of IDs). Re-evaluated every probe.
+- `[plan] next probe at … (reason)` log lines explain every decision.
 
 ### `lib/acrcloud.ts`
 - Endpoint: `https://{ACRCLOUD_HOST}/v1/identify`
@@ -163,6 +170,7 @@ All events are `data: <JSON>\n\n` lines on the `/api/extract` response stream:
 
 - **`client_id` location** — SoundCloud rotates which JS bundle contains the `client_id`. Always fetch all bundles in parallel; never hardcode an index.
 - **HLS transcoding quality** — `audio/mpegurl` transcodings return 404. Always try `audio/mpeg` first.
+- **AAC-only tracks (fMP4)** — many tracks now only offer `audio/mp4` (aac_160k/aac_96k). Their `.m4s` fragments are undecodable without the `#EXT-X-MAP` `init.mp4`; `downloadProbeBytes` prepends it. Without it ACRCloud returns `2004: Can't generate fingerprint` on every call (0 tracks for the whole set).
 - **SSE via `fetch` not `EventSource`** — the frontend uses `fetch` + `ReadableStream` reader instead of `EventSource` to avoid CORS pre-flight issues with query params.
 - **Buffer → Blob** — Node.js `Buffer` is not directly assignable to `BlobPart` in TypeScript strict mode; wrap with `new Uint8Array(buffer)`.
 

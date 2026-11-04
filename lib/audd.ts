@@ -1,3 +1,5 @@
+import { audioFileInfo } from "./hls-chunks";
+
 export interface AuddMatch {
   artist: string;
   title: string;
@@ -21,11 +23,8 @@ export async function identifyWithAudd(audioBytes: Buffer): Promise<AuddMatch | 
 
   const form = new FormData();
   form.append("api_token", apiToken);
-  form.append(
-    "audio",
-    new Blob([new Uint8Array(audioBytes)], { type: "audio/mpeg" }),
-    "segment.mp3"
-  );
+  const { mime, filename } = audioFileInfo(audioBytes);
+  form.append("audio", new Blob([new Uint8Array(audioBytes)], { type: mime }), filename);
 
   try {
     console.log(`[audd] fallback identify`);

@@ -7,8 +7,9 @@ import {
   getHlsTranscodings,
 } from "@/lib/soundcloud";
 import { parseTracklist } from "@/lib/tracklist-parser";
-import { fetchM3u8Segments, findSegmentIndexNearOffset, downloadProbeBytes, INITIAL_OFFSET_SECS, TRACK_ESTIMATE_SECS, FALLBACK_STEP_SECS, SHIFT_RETRY_SECS } from "@/lib/hls-chunks";
-import { identifyAudio, AcrRateLimitError, ACR_MAX_CALLS_PER_SESSION } from "@/lib/acrcloud";
+import { fetchM3u8Segments, findSegmentIndexNearOffset, downloadProbeBytes, INITIAL_OFFSET_SECS, SHIFT_RETRY_SECS } from "@/lib/hls-chunks";
+import { identifyAudio, AcrRateLimitError, ACR_MAX_CALLS_PER_SESSION, type AcrMatch } from "@/lib/acrcloud";
+import { stepAfterMatch, stepAfterMiss, isSparseMode, MISS_STEP_SECS, type TrackedMatch } from "@/lib/sampling-plan";
 import { identifyWithAudd, AUDD_MAX_CALLS_PER_SESSION } from "@/lib/audd";
 import { getCachedSetlist, saveSetlist, CachedTrack } from "@/lib/setlist-cache";
 import { auth } from "@/auth";
@@ -225,21 +226,33 @@ export async function GET(req: NextRequest) {
         let acrPrimaryCalls = 0;
         let acrRetryCalls = 0;
         let probes = 0;
-        let matches = 0;
+        let matches = 0; // new tracks added
+        let recognitions = 0; // any successful identification, incl. repeats of the same song
+        let lastMatch: TrackedMatch | undefined;
+        let sparseLogged = false;
         const formatMmSs = (secs: number) =>
           `${String(Math.floor(secs / 60)).padStart(2, "0")}:${String(Math.floor(secs % 60)).padStart(2, "0")}`;
 
         while (targetOffset <= totalDuration) {
           if (req.signal.aborted) break;
-          const idx = findSegmentIndexNearOffset(allSegments, targetOffset);
+          let idx = findSegmentIndexNearOffset(allSegments, targetOffset);
           if (idx < 0) break;
+          // Short steps can land on a segment a retry already used: move forward instead of stopping.
+          while (idx < allSegments.length && visitedUrls.has(allSegments[idx].url)) idx++;
+          if (idx >= allSegments.length) break;
           let seg = allSegments[idx];
-          if (visitedUrls.has(seg.url)) break;
           visitedUrls.add(seg.url);
 
           const minutes = Math.floor(seg.offsetSecs / 60);
           emit({ type: "status", message: `Identifying track at ~${minutes}:00...` });
 
+          const sparse = isSparseMode(acrCalls, recognitions);
+          if (sparse && !sparseLogged) {
+            sparseLogged = true;
+            console.log(`[plan] sparse mode: ${recognitions}/${acrCalls} recognized → no retries, wider steps`);
+          }
+
+          let decision: { step: number; reason: string };
           try {
             if (acrCalls >= ACR_MAX_CALLS_PER_SESSION) {
               emit({ type: "warning", message: `ACRCloud call limit reached (${ACR_MAX_CALLS_PER_SESSION} calls) — results may be incomplete.` });
@@ -250,10 +263,11 @@ export async function GET(req: NextRequest) {
             acrPrimaryCalls++;
             probes++;
             console.log(`[extract] ACR call #${acrCalls} (primary) at ${formatMmSs(seg.offsetSecs)}`);
-            let match: { artist: string; title: string } | null = await identifyAudio(bytes, seg.offsetSecs);
+            let match: AcrMatch | null = await identifyAudio(bytes, seg.offsetSecs);
+            let retriedAndMissed = false;
 
-            // Retry-with-shift: if ACR missed, probe again ~25s later before giving up
-            if (!match) {
+            // Retry-with-shift: the first probe may have landed on a blend between two tracks.
+            if (!match && !sparse) {
               const retryIdx = findSegmentIndexNearOffset(allSegments, seg.offsetSecs + SHIFT_RETRY_SECS);
               if (
                 retryIdx >= 0 &&
@@ -272,6 +286,8 @@ export async function GET(req: NextRequest) {
                   if (retryMatch) {
                     match = retryMatch;
                     seg = retrySeg;
+                  } else {
+                    retriedAndMissed = true;
                   }
                 } catch (retryErr) {
                   if (retryErr instanceof AcrRateLimitError) {
@@ -282,38 +298,54 @@ export async function GET(req: NextRequest) {
               }
             }
 
+            let auddMatch: { artist: string; title: string } | null = null;
             if (!match && auddCalls < AUDD_MAX_CALLS_PER_SESSION) {
               auddCalls++;
-              match = await identifyWithAudd(bytes);
+              auddMatch = await identifyWithAudd(bytes);
             }
 
-            if (match && !seenTitles.has(match.title.toLowerCase())) {
-              seenTitles.add(match.title.toLowerCase());
-              matches++;
-              const t: CachedTrack = {
-                artist: match.artist,
-                title: match.title,
-                timestamp: formatMmSs(seg.offsetSecs),
-              };
-              collectedTracks.push(t);
-              emit({ type: "track", data: t });
-              targetOffset = seg.offsetSecs + TRACK_ESTIMATE_SECS;
+            const found = match ?? auddMatch;
+            if (found) {
+              recognitions++;
+              if (!seenTitles.has(found.title.toLowerCase())) {
+                seenTitles.add(found.title.toLowerCase());
+                matches++;
+                const t: CachedTrack = {
+                  artist: found.artist,
+                  title: found.title,
+                  timestamp: formatMmSs(seg.offsetSecs),
+                };
+                collectedTracks.push(t);
+                emit({ type: "track", data: t });
+              }
+              const d = stepAfterMatch(lastMatch, {
+                title: found.title,
+                mixOffsetSecs: seg.offsetSecs,
+                playOffsetSecs: match?.playOffsetSecs,
+                durationSecs: match?.durationSecs,
+              });
+              lastMatch = d.tracked;
+              decision = d;
             } else {
-              targetOffset = seg.offsetSecs + FALLBACK_STEP_SECS;
+              // In sparse mode we skip the retry on purpose, so treat a miss like a double miss.
+              decision = stepAfterMiss(retriedAndMissed || sparse);
             }
           } catch (err) {
             if (err instanceof AcrRateLimitError) {
               emit({ type: "warning", message: "ACRCloud daily limit reached — results may be incomplete. Try again tomorrow." });
               break;
             }
-            targetOffset = seg.offsetSecs + FALLBACK_STEP_SECS;
+            decision = { step: MISS_STEP_SECS, reason: "probe error" };
           }
+
+          targetOffset = seg.offsetSecs + decision.step;
+          console.log(`[plan] next probe at ${formatMmSs(targetOffset)} (+${Math.round(decision.step)}s: ${decision.reason})`);
         }
 
         const hitRate = acrCalls > 0 ? Math.round((matches / acrCalls) * 100) : 0;
         console.log(
           `[extract] cost summary: ACR=${acrCalls} (primary=${acrPrimaryCalls}, retry=${acrRetryCalls}), ` +
-          `AudD=${auddCalls}, matches=${matches}, probes=${probes}, retries=${acrRetryCalls}, hit-rate=${hitRate}%`
+          `AudD=${auddCalls}, matches=${matches}, recognitions=${recognitions}, probes=${probes}, retries=${acrRetryCalls}, hit-rate=${hitRate}%`
         );
 
         // Record ACR spend against the global daily budget regardless of outcome.

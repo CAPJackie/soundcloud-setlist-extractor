@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { audioFileInfo } from "./hls-chunks";
 
 export const ACR_MAX_CALLS_PER_SESSION = 200;
 
@@ -15,6 +16,10 @@ export interface AcrMatch {
   album?: string;
   offsetSecs?: number;
   score?: number;
+  /** Position of the sample inside the original song. */
+  playOffsetSecs?: number;
+  /** Length of the original song. */
+  durationSecs?: number;
 }
 
 interface AcrResponse {
@@ -25,6 +30,8 @@ interface AcrResponse {
       artists?: Array<{ name: string }>;
       album?: { name: string };
       score?: number;
+      play_offset_ms?: number;
+      duration_ms?: number;
     }>;
   };
 }
@@ -62,12 +69,8 @@ export async function identifyAudio(
   form.append("signature", signature);
   form.append("timestamp", timestamp);
   form.append("sample_bytes", audioBytes.length.toString());
-  const uint8 = new Uint8Array(audioBytes);
-  form.append(
-    "sample",
-    new Blob([uint8], { type: "audio/mpeg" }),
-    "chunk.ts"
-  );
+  const { mime, filename } = audioFileInfo(audioBytes);
+  form.append("sample", new Blob([new Uint8Array(audioBytes)], { type: mime }), filename);
 
   console.log(`[acr] identify at ${Math.floor(offsetSecs / 60)}:${String(Math.floor(offsetSecs % 60)).padStart(2, "0")}`);
 
@@ -92,7 +95,11 @@ export async function identifyAudio(
   if (!music) return null;
 
   const artist = music.artists?.map((a) => a.name).join(", ") ?? "Unknown Artist";
-  console.log(`[acr] matched: "${music.title}" by ${artist} (score: ${music.score ?? "?"})`);
+  console.log(
+    `[acr] matched: "${music.title}" by ${artist} (score: ${music.score ?? "?"}, ` +
+      `at ${music.play_offset_ms != null ? Math.round(music.play_offset_ms / 1000) + "s" : "?"} of ` +
+      `${music.duration_ms != null ? Math.round(music.duration_ms / 1000) + "s" : "?"})`
+  );
 
   return {
     artist,
@@ -100,5 +107,7 @@ export async function identifyAudio(
     album: music.album?.name,
     offsetSecs,
     score: music.score,
+    playOffsetSecs: typeof music.play_offset_ms === "number" ? music.play_offset_ms / 1000 : undefined,
+    durationSecs: typeof music.duration_ms === "number" ? music.duration_ms / 1000 : undefined,
   };
 }
