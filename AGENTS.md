@@ -128,7 +128,7 @@ on cache miss only: monthly quota (`lib/usage.ts`) + global daily ACRCloud budge
 recorded against the daily budget after the fingerprinting loop.
 
 - **Plans:** `users.plan` = `free | pro` (default free). Free = `FREE_MONTHLY_LIMIT` (5) extractions/month;
-  Pro = `PRO_MONTHLY_LIMIT` (100). `GET /api/usage` returns the current quota for the UI (`UsageBanner`).
+  Pro = `PRO_MONTHLY_LIMIT` (100). Admins (`ADMIN_EMAILS`) are treated as Pro with no monthly cap (`getQuota` returns `admin: true`, `allowed: true`) and `UsageBanner` is hidden for them; rate limit and ACR daily budget still apply. `GET /api/usage` returns the current quota for the UI (`UsageBanner`).
 - **Billing (Stripe):** `POST /api/billing/checkout` (subscription Checkout), `POST /api/billing/portal`
   (manage/cancel), `POST /api/billing/webhook` (flips `users.plan` on subscription events — excluded from
   auth middleware in `proxy.ts`, needs the raw body for signature verification). Helpers in `lib/stripe.ts`.

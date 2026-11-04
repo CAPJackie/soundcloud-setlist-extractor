@@ -1,10 +1,16 @@
 import Link from "next/link";
 import UpgradeButton from "@/components/UpgradeButton";
-import { FREE_MONTHLY_LIMIT, PRO_MONTHLY_LIMIT } from "@/lib/usage";
+import ManageSubscriptionButton from "@/components/ManageSubscriptionButton";
+import { auth } from "@/auth";
+import { FREE_MONTHLY_LIMIT, PRO_MONTHLY_LIMIT, getQuota } from "@/lib/usage";
 
 export const metadata = { title: "Pricing — Setlist Extractor" };
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  // Public page: visitors who aren't logged in just see the upgrade button.
+  const session = await auth();
+  const quota = session?.user?.email ? await getQuota(session.user.email).catch(() => null) : null;
+
   return (
     <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center px-4 py-16">
       <div className="w-full max-w-3xl flex flex-col gap-10">
@@ -48,8 +54,19 @@ export default function PricingPage() {
               <li>Everything in Free</li>
               <li>Priority processing</li>
             </ul>
-            <div className="mt-auto">
-              <UpgradeButton />
+            <div className="mt-auto flex flex-col gap-2">
+              {quota?.admin ? (
+                <p className="w-full text-center rounded-xl bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 font-semibold py-3 text-sm">
+                  Included with admin access
+                </p>
+              ) : quota?.plan === "pro" ? (
+                <>
+                  <p className="text-center text-xs font-medium text-orange-600 dark:text-orange-400">Your current plan</p>
+                  <ManageSubscriptionButton />
+                </>
+              ) : (
+                <UpgradeButton />
+              )}
             </div>
           </div>
         </div>

@@ -9,6 +9,7 @@ interface Quota {
   limit: number;
   remaining: number;
   allowed: boolean;
+  admin?: boolean;
 }
 
 /** Bump `refreshKey` to re-fetch usage (e.g. after an extraction completes). */
@@ -47,7 +48,7 @@ export default function UsageBanner({ refreshKey = 0 }: { refreshKey?: number })
     setUpgrading(false);
   };
 
-  if (!quota) return null;
+  if (!quota || quota.admin) return null;
 
   if (quota.plan === "pro") {
     return (

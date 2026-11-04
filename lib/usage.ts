@@ -1,5 +1,6 @@
 import { getDb } from "./db";
 import { getUserPlan, UserPlan } from "./users";
+import { isAdmin } from "./roles";
 
 export const FREE_MONTHLY_LIMIT = Number(process.env.FREE_MONTHLY_LIMIT ?? 5);
 export const PRO_MONTHLY_LIMIT = Number(process.env.PRO_MONTHLY_LIMIT ?? 100);
@@ -48,12 +49,18 @@ export interface Quota {
   limit: number;
   remaining: number;
   allowed: boolean;
+  /** Admins get Pro with no monthly cap; the UI hides quota messaging for them. */
+  admin: boolean;
 }
 
 /** Look up a user's plan + current-period usage and whether they may run another extraction. */
 export async function getQuota(email: string): Promise<Quota> {
+  if (isAdmin(email)) {
+    const used = await getMonthlyUsage(email);
+    return { plan: "pro", used, limit: PRO_MONTHLY_LIMIT, remaining: PRO_MONTHLY_LIMIT, allowed: true, admin: true };
+  }
   const [plan, used] = await Promise.all([getUserPlan(email), getMonthlyUsage(email)]);
   const limit = planLimit(plan);
   const remaining = Math.max(0, limit - used);
-  return { plan, used, limit, remaining, allowed: used < limit };
+  return { plan, used, limit, remaining, allowed: used < limit, admin: false };
 }
