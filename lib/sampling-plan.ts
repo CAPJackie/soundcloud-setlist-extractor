@@ -20,6 +20,9 @@ export const SAME_TRACK_STEP_SECS = 60; // song still playing, no usable timing 
 export const MISS_STEP_SECS = 90; // single miss with no retry possible
 export const DOUBLE_MISS_STEP_SECS = 180; // primary + retry both missed → likely unknown track
 
+/** ACRCloud scores below this are shown as "low confidence" until the song is heard again. */
+export const LOW_CONFIDENCE_SCORE = 50;
+
 export const SPARSE_CHECK_AFTER_CALLS = 15;
 export const SPARSE_MAX_HIT_RATE = 0.1;
 
@@ -27,6 +30,27 @@ export const SPARSE_MAX_HIT_RATE = 0.1;
 // not a tempo change: CDJ/Traktor pitch ranges used in practice stay within ±15%.
 const RATE_MIN = 0.85;
 const RATE_MAX = 1.15;
+// ACRCloud's position-in-song is only accurate to roughly ±15s (it matches somewhere
+// inside a ~30s sample), so rate is only measured over gaps long enough to absorb that.
+const RATE_MIN_WINDOW_SECS = 90;
+// Over shorter gaps, only a drift bigger than the position noise counts as a jump.
+const JUMP_TOLERANCE_SECS = 45;
+
+/**
+ * Same-song key: ignores case, punctuation and version tags that don't change the
+ * recording ("Original Mix", "Extended Mix", "Radio Edit", "Remastered"). Remix names
+ * are kept on purpose: "Track (X Remix)" is a different recording than "Track".
+ */
+export function normalizeTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[([]\s*(original|extended|club)( mix| version)?\s*[)\]]/g, " ")
+    .replace(/[([]\s*radio edit\s*[)\]]/g, " ")
+    .replace(/[([]\s*remaster(ed)?( \d{4})?\s*[)\]]/g, " ")
+    .replace(/\s+-\s+(original|extended|club) mix\s*$/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
 
 export interface MatchTiming {
   title: string;
@@ -54,7 +78,7 @@ export interface StepDecision {
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 export function stepAfterMatch(prev: TrackedMatch | undefined, cur: MatchTiming): StepDecision {
-  const sameSong = !!prev && prev.title.toLowerCase() === cur.title.toLowerCase();
+  const sameSong = !!prev && normalizeTitle(prev.title) === normalizeTitle(cur.title);
   let unreliable = sameSong ? prev!.unreliable : false;
   let rate = sameSong ? prev!.rate : undefined;
   let rateNote = "";
@@ -62,15 +86,19 @@ export function stepAfterMatch(prev: TrackedMatch | undefined, cur: MatchTiming)
   if (sameSong && !unreliable && prev!.playOffsetSecs != null && cur.playOffsetSecs != null) {
     const mixDelta = cur.mixOffsetSecs - prev!.mixOffsetSecs;
     const songDelta = cur.playOffsetSecs - prev!.playOffsetSecs;
-    if (mixDelta > 0) {
+    const jumpNote = ` (song moved ${Math.round(songDelta)}s in ${Math.round(mixDelta)}s of mix → hot cue/loop, ignoring song length)`;
+    if (mixDelta >= RATE_MIN_WINDOW_SECS) {
       const r = songDelta / mixDelta;
       if (r < RATE_MIN || r > RATE_MAX) {
         unreliable = true;
-        rateNote = ` (song moved ${Math.round(songDelta)}s in ${Math.round(mixDelta)}s of mix → hot cue/loop, ignoring song length)`;
+        rateNote = jumpNote;
       } else {
         rate = r;
         rateNote = ` (rate ${r.toFixed(2)}x)`;
       }
+    } else if (mixDelta > 0 && Math.abs(songDelta - mixDelta) > JUMP_TOLERANCE_SECS) {
+      unreliable = true;
+      rateNote = jumpNote;
     }
   }
 
@@ -79,10 +107,17 @@ export function stepAfterMatch(prev: TrackedMatch | undefined, cur: MatchTiming)
   const { playOffsetSecs: pos, durationSecs: dur } = cur;
   if (!unreliable && pos != null && dur != null && dur > pos) {
     const remaining = (dur - pos) / (rate ?? 1);
-    const step = clamp(remaining - OUTRO_MARGIN_SECS, MIN_STEP_SECS, MAX_STEP_SECS);
+    // First sighting: land ~90s before the song ends to catch the next track's start.
+    // Already confirmed: the song is known to be playing, so jump to where it ends
+    // instead of re-confirming it every 30s.
+    const step = sameSong
+      ? clamp(remaining, MIN_STEP_SECS, MAX_STEP_SECS)
+      : clamp(remaining - OUTRO_MARGIN_SECS, MIN_STEP_SECS, MAX_STEP_SECS);
     return {
       step,
-      reason: `${sameSong ? "same song, " : ""}~${Math.round(remaining)}s left in song${rateNote}`,
+      reason: sameSong
+        ? `same song, ~${Math.round(remaining)}s left → jumping to its end${rateNote}`
+        : `~${Math.round(remaining)}s left in song${rateNote}`,
       tracked,
     };
   }

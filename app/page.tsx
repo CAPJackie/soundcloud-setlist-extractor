@@ -11,6 +11,7 @@ interface Track {
   artist: string;
   title: string;
   timestamp?: string;
+  lowConfidence?: boolean;
 }
 
 type SseEvent =
@@ -18,6 +19,7 @@ type SseEvent =
   | { type: "warning"; message: string }
   | { type: "resolved"; url: string }
   | { type: "track"; data: Track }
+  | { type: "confirm"; index: number }
   | { type: "error"; message: string }
   | { type: "done"; total: number; title?: string };
 
@@ -74,6 +76,8 @@ function HomeInner() {
             else if (event.type === "warning") toast.error(event.message);
             else if (event.type === "resolved") setCurrentUrl(event.url);
             else if (event.type === "track") setTracks((prev) => [...prev, event.data]);
+            else if (event.type === "confirm")
+              setTracks((prev) => prev.map((t, i) => (i === event.index ? { ...t, lowConfidence: false } : t)));
             else if (event.type === "error") setError(event.message);
             else if (event.type === "done") {
               setTotal(event.total);

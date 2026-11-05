@@ -9,7 +9,7 @@ import {
 import { parseTracklist } from "@/lib/tracklist-parser";
 import { fetchM3u8Segments, findSegmentIndexNearOffset, downloadProbeBytes, INITIAL_OFFSET_SECS, SHIFT_RETRY_SECS } from "@/lib/hls-chunks";
 import { identifyAudio, AcrRateLimitError, ACR_MAX_CALLS_PER_SESSION, type AcrMatch } from "@/lib/acrcloud";
-import { stepAfterMatch, stepAfterMiss, isSparseMode, MISS_STEP_SECS, type TrackedMatch } from "@/lib/sampling-plan";
+import { stepAfterMatch, stepAfterMiss, isSparseMode, normalizeTitle, MISS_STEP_SECS, LOW_CONFIDENCE_SCORE, type TrackedMatch } from "@/lib/sampling-plan";
 import { identifyWithAudd, AUDD_MAX_CALLS_PER_SESSION } from "@/lib/audd";
 import { getCachedSetlist, saveSetlist, CachedTrack } from "@/lib/setlist-cache";
 import { auth } from "@/auth";
@@ -23,7 +23,8 @@ type SseEvent =
   | { type: "status"; message: string }
   | { type: "warning"; message: string }
   | { type: "resolved"; url: string }
-  | { type: "track"; data: { artist: string; title: string; timestamp?: string } }
+  | { type: "track"; data: { artist: string; title: string; timestamp?: string; lowConfidence?: boolean } }
+  | { type: "confirm"; index: number }
   | { type: "error"; message: string }
   | { type: "done"; total: number; cached?: boolean; title?: string };
 
@@ -101,7 +102,8 @@ export async function GET(req: NextRequest) {
         else if (event.type === "warning") console.warn(`[extract] WARN ${event.message}`);
         else if (event.type === "resolved") console.log(`[extract] resolved url: ${event.url}`);
         else if (event.type === "error") console.error(`[extract] ERROR ${event.message}`);
-        else if (event.type === "track") console.log(`[extract] track: ${event.data.artist} — ${event.data.title}${event.data.timestamp ? ` @ ${event.data.timestamp}` : ""}`);
+        else if (event.type === "track") console.log(`[extract] track: ${event.data.artist} — ${event.data.title}${event.data.timestamp ? ` @ ${event.data.timestamp}` : ""}${event.data.lowConfidence ? " (low confidence)" : ""}`);
+        else if (event.type === "confirm") console.log(`[extract] confirmed track #${event.index + 1}`);
         else if (event.type === "done") console.log(`[extract] done: ${event.total} tracks${event.cached ? " (cached)" : ""}`);
       };
 
@@ -218,7 +220,8 @@ export async function GET(req: NextRequest) {
 
         emit({ type: "status", message: "Analyzing audio samples across the set..." });
 
-        const seenTitles = new Set(collectedTracks.map((t) => t.title.toLowerCase()));
+        // normalized title → index in collectedTracks (same order as emitted to the client)
+        const seenTitles = new Map(collectedTracks.map((t, i) => [normalizeTitle(t.title), i]));
         const visitedUrls = new Set<string>();
         let targetOffset = INITIAL_OFFSET_SECS;
         let auddCalls = 0;
@@ -307,16 +310,25 @@ export async function GET(req: NextRequest) {
             const found = match ?? auddMatch;
             if (found) {
               recognitions++;
-              if (!seenTitles.has(found.title.toLowerCase())) {
-                seenTitles.add(found.title.toLowerCase());
+              const key = normalizeTitle(found.title);
+              const existing = seenTitles.get(key);
+              if (existing === undefined) {
+                seenTitles.set(key, collectedTracks.length);
                 matches++;
+                // AudD gives no score, so only ACRCloud matches can be flagged.
+                const lowConfidence = match?.score != null && match.score < LOW_CONFIDENCE_SCORE;
                 const t: CachedTrack = {
                   artist: found.artist,
                   title: found.title,
                   timestamp: formatMmSs(seg.offsetSecs),
+                  ...(lowConfidence ? { lowConfidence: true } : {}),
                 };
                 collectedTracks.push(t);
                 emit({ type: "track", data: t });
+              } else if (collectedTracks[existing].lowConfidence) {
+                // Heard again → no longer a likely false match.
+                delete collectedTracks[existing].lowConfidence;
+                emit({ type: "confirm", index: existing });
               }
               const d = stepAfterMatch(lastMatch, {
                 title: found.title,

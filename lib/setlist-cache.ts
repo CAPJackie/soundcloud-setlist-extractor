@@ -5,6 +5,8 @@ export interface CachedTrack {
   artist: string;
   title: string;
   timestamp?: string;
+  /** Recognized only once with a low ACRCloud score; may be a false match. */
+  lowConfidence?: boolean;
 }
 
 export interface CachedSetlist {

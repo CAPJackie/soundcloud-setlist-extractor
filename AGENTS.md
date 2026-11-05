@@ -78,7 +78,9 @@ Strips junk (URLs, social handles, "FREE DOWNLOAD"), deduplicates results.
 ### `lib/sampling-plan.ts`
 Pure logic deciding where the next probe goes (no I/O; easy to test).
 - After a match, ACRCloud's `play_offset_ms` / `duration_ms` give the song's remaining time. It's an **upper bound only**: the jump is `remaining − 90s outro margin`, clamped to 30–180s. Metadata can only shorten the jump vs. the old fixed 180s, never lengthen it.
-- Two matches of the same song give the real playback rate (pitch/tempo). Rate outside 0.85–1.15 = hot cue or loop → song length ignored for that song; re-check every 60s.
+- Once a song is confirmed (2nd match of the same title), jump straight to its estimated end instead of re-confirming every 30s.
+- Two matches of the same song give the real playback rate (pitch/tempo), measured only over ≥90s of mix (ACR's position-in-song is ±15s noisy). Rate outside 0.85–1.15, or a >45s drift over shorter gaps = hot cue or loop → song length ignored for that song; re-check every 60s.
+- Same-song / dedupe key is `normalizeTitle()`: strips "Original/Extended Mix", "Radio Edit", "Remastered" but keeps remix names.
 - Miss: retry +25s once; if both miss → jump 180s (likely unknown/unreleased track).
 - Sparse mode: after 15 calls with <10% recognized, no retries and 180s steps on miss (underground sets full of IDs). Re-evaluated every probe.
 - `[plan] next probe at … (reason)` log lines explain every decision.
@@ -160,7 +162,8 @@ All events are `data: <JSON>\n\n` lines on the `/api/extract` response stream:
 | `type`   | Extra fields                              | Meaning                        |
 |----------|-------------------------------------------|--------------------------------|
 | `status` | `message: string`                         | Progress update                |
-| `track`  | `data: {artist, title, timestamp?}`       | One identified track           |
+| `track`  | `data: {artist, title, timestamp?, lowConfidence?}` | One identified track. `lowConfidence` = ACR score < 50, heard once |
+| `confirm`| `index: number`                           | Track at `index` was heard again → clear its `lowConfidence` |
 | `error`  | `message: string`                         | Fatal error, stream ends       |
 | `done`   | `total: number, cached?: boolean, title?: string` | Extraction complete     |
 

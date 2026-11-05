@@ -16,6 +16,7 @@ interface Track {
   artist: string;
   title: string;
   timestamp?: string;
+  lowConfidence?: boolean;
 }
 
 interface Props {
@@ -209,6 +210,7 @@ export default function TrackList({ tracks, status, loading, error, total, curre
                 artist={track.artist}
                 title={track.title}
                 timestamp={track.timestamp}
+                lowConfidence={track.lowConfidence}
                 fresh={i === freshIdx}
                 spotifyFound={spotifyFoundMap[i]}
               />
