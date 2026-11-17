@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import LikeButton from "@/components/LikeButton";
 import SetPlayer from "@/components/SetPlayer";
+import ResumeProgress from "@/components/ResumeProgress";
 
 export default async function SetDetailPage({
   params,
@@ -50,6 +51,14 @@ export default async function SetDetailPage({
             <span>{date}</span>
           </div>
         </div>
+
+        {set.incomplete && (
+          <ResumeProgress
+            resumeFromSecs={set.resumeFromSecs}
+            durationSecs={set.durationSecs}
+            href={userEmail ? `/?url=${encodeURIComponent(set.url)}` : "/login"}
+          />
+        )}
 
         <SetPlayer url={set.url} tracks={set.tracks} mixTitle={set.title} />
       </div>

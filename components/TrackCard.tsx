@@ -1,3 +1,6 @@
+import TrackLinks from "./TrackLinks";
+import type { TrackLinks as Links } from "@/lib/hooks/use-track-links";
+
 interface Props {
   index: number;
   artist: string;
@@ -6,16 +9,15 @@ interface Props {
   fresh?: boolean;
   spotifyFound?: boolean;
   lowConfidence?: boolean;
+  links?: Links;
 }
 
-export default function TrackCard({ index, artist, title, timestamp, fresh, spotifyFound, lowConfidence }: Props) {
+export default function TrackCard({ index, artist, title, timestamp, fresh, spotifyFound, lowConfidence, links }: Props) {
+  const columns = ["2rem", timestamp && "3.5rem", "1fr", lowConfidence && "auto", "auto"].filter(Boolean).join("_");
   return (
     <div
+      style={{ gridTemplateColumns: columns.replace(/_/g, " ") }}
       className={`grid items-center gap-x-4 px-5 py-4 rounded-xl border transition-all duration-300 ${
-        timestamp
-          ? lowConfidence ? "grid-cols-[2rem_3.5rem_1fr_auto]" : "grid-cols-[2rem_3.5rem_1fr]"
-          : lowConfidence ? "grid-cols-[2rem_1fr_auto]" : "grid-cols-[2rem_1fr]"
-      } ${
         fresh
           ? "border-orange-400/60 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-500/40"
           : "border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900"
@@ -43,6 +45,7 @@ export default function TrackCard({ index, artist, title, timestamp, fresh, spot
           low confidence
         </span>
       )}
+      <TrackLinks artist={artist} title={title} links={links} />
     </div>
   );
 }

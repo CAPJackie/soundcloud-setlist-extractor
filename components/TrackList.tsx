@@ -1,5 +1,6 @@
 "use client";
 
+import ResumeProgress from "@/components/ResumeProgress";
 import {
   addTracksToPlaylist,
   clearToken,
@@ -11,6 +12,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import TrackCard from "./TrackCard";
+import { useTrackLinks } from "@/lib/hooks/use-track-links";
 
 interface Track {
   artist: string;
@@ -27,14 +29,20 @@ interface Props {
   total: number | null;
   currentUrl: string | null;
   mixTitle: string | null;
+  incomplete?: boolean;
+  resumeFromSecs?: number | null;
+  durationSecs?: number | null;
+  onResume?: () => void;
   onCacheReset: () => void;
 }
 
 type ExportState = "idle" | "connecting" | "exporting" | "done" | "error";
 
-export default function TrackList({ tracks, status, loading, error, total, currentUrl, mixTitle, onCacheReset }: Props) {
+export default function TrackList({ tracks, status, loading, error, total, currentUrl, mixTitle, incomplete, resumeFromSecs, durationSecs, onResume, onCacheReset }: Props) {
   const { data: session } = useSession();
   const isAdmin = session?.user?.isAdmin ?? false;
+  // Direct Spotify / Apple Music links, looked up once the list is final.
+  const trackLinks = useTrackLinks(tracks, !loading && tracks.length > 0);
   const [freshIdx, setFreshIdx] = useState<number>(-1);
   const [resetting, setResetting] = useState(false);
   const prevLen = useRef(0);
@@ -162,7 +170,11 @@ export default function TrackList({ tracks, status, loading, error, total, curre
         </div>
       )}
 
-      {doneWithNothing && (
+      {incomplete && !loading && (
+        <ResumeProgress resumeFromSecs={resumeFromSecs} durationSecs={durationSecs} onResume={onResume} />
+      )}
+
+      {doneWithNothing && !incomplete && (
         <div className="rounded-xl bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 px-5 py-4 text-sm text-zinc-500 dark:text-zinc-400">
           No tracks could be identified from this mix. ACRCloud didn't match any of the audio samples.
         </div>
@@ -211,6 +223,7 @@ export default function TrackList({ tracks, status, loading, error, total, curre
                 title={track.title}
                 timestamp={track.timestamp}
                 lowConfidence={track.lowConfidence}
+                links={trackLinks[i]}
                 fresh={i === freshIdx}
                 spotifyFound={spotifyFoundMap[i]}
               />

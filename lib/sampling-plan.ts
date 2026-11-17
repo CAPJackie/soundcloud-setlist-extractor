@@ -17,14 +17,30 @@ export const MAX_STEP_SECS = 180; // never jump further than this after a match
 export const MIN_STEP_SECS = 30;
 export const OUTRO_MARGIN_SECS = 90; // DJs usually start blending ~90s before the end
 export const SAME_TRACK_STEP_SECS = 60; // song still playing, no usable timing → check again soon
-export const MISS_STEP_SECS = 90; // single miss with no retry possible
+export const MISS_STEP_SECS = 90; // clean mix, single miss with no retry possible
+export const DENSE_MISS_STEP_SECS = 150; // layered mix: the same blend lasts minutes, move on
 export const DOUBLE_MISS_STEP_SECS = 180; // primary + retry both missed → likely unknown track
+export const SPARSE_MISS_STEP_SECS = 180; // stretch of mostly unknown tracks
 
 /** ACRCloud scores below this are shown as "low confidence" until the song is heard again. */
-export const LOW_CONFIDENCE_SCORE = 50;
+export const LOW_CONFIDENCE_SCORE = 60;
 
-export const SPARSE_CHECK_AFTER_CALLS = 15;
+// Mix mode is judged on the last MODE_WINDOW probes, not the whole set: long sets
+// alternate between stretches of known tracks and long stretches of IDs.
+export const MODE_WINDOW = 20;
+export const MODE_MIN_PROBES = 8;
+export const CLEAN_MIN_HIT_RATE = 0.35;
 export const SPARSE_MAX_HIT_RATE = 0.1;
+// Hysteresis: leaving a mode needs a clearer signal than entering it, so one hit
+// moving in or out of the window doesn't flip the mode back and forth.
+export const CLEAN_EXIT_HIT_RATE = 0.25;
+export const SPARSE_EXIT_HIT_RATE = 0.15;
+
+// The +25s retry only pays off when transitions are short (2-deck mixing). It is
+// tried in clean stretches and dropped for the rest of the run once it's shown
+// not to work (3+ deck sets keep the same layered blend for minutes).
+export const RETRY_TRIAL = 8;
+export const RETRY_MIN_HIT_RATE = 0.15;
 
 // Playback rate outside this range means the DJ jumped (hot cue) or looped,
 // not a tempo change: CDJ/Traktor pitch ranges used in practice stay within ±15%.
@@ -128,17 +144,37 @@ export function stepAfterMatch(prev: TrackedMatch | undefined, cur: MatchTiming)
   return { step: MAX_STEP_SECS, reason: "no song timing from recognizer", tracked };
 }
 
-export function stepAfterMiss(retriedAndMissed: boolean): { step: number; reason: string } {
-  return retriedAndMissed
-    ? { step: DOUBLE_MISS_STEP_SECS, reason: "missed twice → likely unknown track" }
-    : { step: MISS_STEP_SECS, reason: "missed" };
+/**
+ * - clean:  many recent probes recognized (tracks play clearly, short transitions)
+ * - dense:  default; layered 3+ deck mixing, some tracks recognizable
+ * - sparse: recent stretch is mostly unknown tracks (IDs / unreleased)
+ * Dense until there's enough history, since that's how most underground DJs mix.
+ */
+export type MixMode = "clean" | "dense" | "sparse";
+
+export function mixMode(recentHits: boolean[], prev?: MixMode | null): MixMode {
+  const recent = recentHits.slice(-MODE_WINDOW);
+  if (recent.length < MODE_MIN_PROBES) return "dense";
+  const rate = recent.filter(Boolean).length / recent.length;
+  if (prev === "clean" && rate >= CLEAN_EXIT_HIT_RATE) return "clean";
+  if (prev === "sparse" && rate < SPARSE_EXIT_HIT_RATE) return "sparse";
+  if (rate >= CLEAN_MIN_HIT_RATE) return "clean";
+  if (rate < SPARSE_MAX_HIT_RATE) return "sparse";
+  return "dense";
 }
 
-/**
- * Sets that are mostly unreleased IDs (e.g. underground club sets) waste most calls.
- * Once that's evident, stop retrying and probe sparsely. Re-evaluated every probe,
- * so it switches back off if matches pick up.
- */
-export function isSparseMode(calls: number, recognitions: number): boolean {
-  return calls >= SPARSE_CHECK_AFTER_CALLS && recognitions / calls < SPARSE_MAX_HIT_RATE;
+/** Retries stay allowed until RETRY_TRIAL of them show a hit rate below RETRY_MIN_HIT_RATE. */
+export function retriesWorthIt(retries: number, retryHits: number): boolean {
+  return retries < RETRY_TRIAL || retryHits / retries >= RETRY_MIN_HIT_RATE;
+}
+
+export function shouldRetry(mode: MixMode, retries: number, retryHits: number): boolean {
+  return mode === "clean" && retriesWorthIt(retries, retryHits);
+}
+
+export function stepAfterMiss(retriedAndMissed: boolean, mode: MixMode): { step: number; reason: string } {
+  if (retriedAndMissed) return { step: DOUBLE_MISS_STEP_SECS, reason: "missed twice → likely unknown track" };
+  if (mode === "sparse") return { step: SPARSE_MISS_STEP_SECS, reason: "missed (sparse stretch: mostly unknown tracks)" };
+  if (mode === "dense") return { step: DENSE_MISS_STEP_SECS, reason: "missed (layered mix, no retry)" };
+  return { step: MISS_STEP_SECS, reason: "missed" };
 }

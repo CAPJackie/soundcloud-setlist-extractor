@@ -1,5 +1,7 @@
 "use client";
 
+import TrackLinks from "./TrackLinks";
+import { useTrackLinks } from "@/lib/hooks/use-track-links";
 import {
   addTracksToPlaylist,
   clearToken,
@@ -56,6 +58,7 @@ export default function SetPlayer({ url, tracks, mixTitle }: Props) {
   const [exportState, setExportState] = useState<ExportState>("idle");
   const [exportProgress, setExportProgress] = useState({ current: 0, total: 0 });
   const [spotifyFoundMap, setSpotifyFoundMap] = useState<Record<number, boolean>>({});
+  const trackLinks = useTrackLinks(tracks, tracks.length > 0);
   const [playlistUrl, setPlaylistUrl] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [foundCount, setFoundCount] = useState(0);
@@ -258,6 +261,8 @@ export default function SetPlayer({ url, tracks, mixTitle }: Props) {
                 <span>{track.timestamp}</span>
               </button>
             )}
+
+            <TrackLinks artist={track.artist} title={track.title} links={trackLinks[i]} />
           </div>
         ))}
       </div>

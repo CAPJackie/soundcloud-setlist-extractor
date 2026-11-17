@@ -7,6 +7,8 @@ export interface CachedTrack {
   timestamp?: string;
   /** Recognized only once with a low ACRCloud score; may be a false match. */
   lowConfidence?: boolean;
+  /** Record label (from ACRCloud at extraction time). Others are looked up later, see lib/labels.ts. */
+  label?: string;
 }
 
 export interface CachedSetlist {
@@ -18,6 +20,16 @@ export interface CachedSetlist {
   tracks: CachedTrack[];
   searchedBy?: string[];
   likedBy?: string[];
+  /** Extraction was cut off (ACR limit, client disconnect); next lookup continues it. */
+  incomplete?: boolean;
+  /** Mix offset where the cut-off extraction should continue. */
+  resumeFromSecs?: number | null;
+  /** SoundCloud track id of the mix (used by Explore to fetch related sets). */
+  scTrackId?: number | null;
+  /** Mix length, used to show how far a cut-off extraction got. */
+  durationSecs?: number | null;
+  /** User already charged for this set (closed the tab mid-run); their resume is free. */
+  prepaidBy?: string | null;
 }
 
 async function collection() {
@@ -72,6 +84,9 @@ export async function getAllSetlists() {
           cachedAt: 1,
           trackCount: { $size: "$tracks" },
           likedBy: 1,
+          incomplete: 1,
+          resumeFromSecs: 1,
+          durationSecs: 1,
         },
       },
       { $sort: { cachedAt: -1 } },
@@ -92,6 +107,9 @@ export async function getSetlistsByUser(email: string) {
           cachedAt: 1,
           trackCount: { $size: "$tracks" },
           likedBy: 1,
+          incomplete: 1,
+          resumeFromSecs: 1,
+          durationSecs: 1,
         },
       },
       { $sort: { cachedAt: -1 } },

@@ -20,6 +20,8 @@ export interface AcrMatch {
   playOffsetSecs?: number;
   /** Length of the original song. */
   durationSecs?: number;
+  /** Record label, when ACRCloud knows it. */
+  label?: string;
 }
 
 interface AcrResponse {
@@ -29,6 +31,7 @@ interface AcrResponse {
       title: string;
       artists?: Array<{ name: string }>;
       album?: { name: string };
+      label?: string;
       score?: number;
       play_offset_ms?: number;
       duration_ms?: number;
@@ -109,5 +112,6 @@ export async function identifyAudio(
     score: music.score,
     playOffsetSecs: typeof music.play_offset_ms === "number" ? music.play_offset_ms / 1000 : undefined,
     durationSecs: typeof music.duration_ms === "number" ? music.duration_ms / 1000 : undefined,
+    label: typeof music.label === "string" && music.label.trim() ? music.label.trim() : undefined,
   };
 }

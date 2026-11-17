@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import URLInput from "@/components/URLInput";
 import TrackList from "@/components/TrackList";
 import UsageBanner from "@/components/UsageBanner";
+import { sortTracksByTime } from "@/lib/track-order";
 
 interface Track {
   artist: string;
@@ -21,7 +22,14 @@ type SseEvent =
   | { type: "track"; data: Track }
   | { type: "confirm"; index: number }
   | { type: "error"; message: string }
-  | { type: "done"; total: number; title?: string };
+  | {
+      type: "done";
+      total: number;
+      title?: string;
+      incomplete?: boolean;
+      resumeFromSecs?: number | null;
+      durationSecs?: number | null;
+    };
 
 export default function Home() {
   return (
@@ -40,6 +48,11 @@ function HomeInner() {
   const [total, setTotal] = useState<number | null>(null);
   const [currentUrl, setCurrentUrl] = useState<string | null>(null);
   const [mixTitle, setMixTitle] = useState<string | null>(null);
+  const [incomplete, setIncomplete] = useState(false);
+  const [progress, setProgress] = useState<{ resumeFromSecs: number | null; durationSecs: number | null }>({
+    resumeFromSecs: null,
+    durationSecs: null,
+  });
   const [usageTick, setUsageTick] = useState(0);
 
   const handleSubmit = useCallback(async (url: string) => {
@@ -50,6 +63,7 @@ function HomeInner() {
     setTotal(null);
     setCurrentUrl(url);
     setMixTitle(null);
+    setIncomplete(false);
 
     try {
       const res = await fetch(`/api/extract?url=${encodeURIComponent(url)}`);
@@ -81,6 +95,10 @@ function HomeInner() {
             else if (event.type === "error") setError(event.message);
             else if (event.type === "done") {
               setTotal(event.total);
+              // Comment IDs arrive before audio matches: show the final list in mix order.
+              setTracks((prev) => sortTracksByTime(prev));
+              setIncomplete(!!event.incomplete);
+              setProgress({ resumeFromSecs: event.resumeFromSecs ?? null, durationSecs: event.durationSecs ?? null });
               setStatus("");
               if (event.title) setMixTitle(event.title);
             }
@@ -147,7 +165,11 @@ function HomeInner() {
           total={total}
           currentUrl={currentUrl}
           mixTitle={mixTitle}
-          onCacheReset={() => { setTracks([]); setTotal(null); setStatus(""); setMixTitle(null); }}
+          incomplete={incomplete}
+          resumeFromSecs={progress.resumeFromSecs}
+          durationSecs={progress.durationSecs}
+          onResume={() => currentUrl && handleSubmit(currentUrl)}
+          onCacheReset={() => { setTracks([]); setTotal(null); setStatus(""); setMixTitle(null); setIncomplete(false); }}
         />
       </div>
     </main>

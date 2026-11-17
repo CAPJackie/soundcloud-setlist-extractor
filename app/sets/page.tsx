@@ -2,6 +2,7 @@ import { getAllSetlists } from "@/lib/setlist-cache";
 import { auth } from "@/auth";
 import Link from "next/link";
 import LikeButton from "@/components/LikeButton";
+import IncompleteBadge from "@/components/IncompleteBadge";
 import { ObjectId } from "mongodb";
 
 export default async function SetsPage() {
@@ -44,6 +45,12 @@ export default async function SetsPage() {
                     </span>
                   </div>
                   <div className="flex items-center gap-4 shrink-0 text-xs text-zinc-400 dark:text-zinc-500">
+                    {Boolean(set.incomplete) && (
+                      <IncompleteBadge
+                        resumeFromSecs={set.resumeFromSecs as number | null | undefined}
+                        durationSecs={set.durationSecs as number | null | undefined}
+                      />
+                    )}
                     <span>{set.trackCount as number} tracks</span>
                     <span>{date}</span>
                   </div>
