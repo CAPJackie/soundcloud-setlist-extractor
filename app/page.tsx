@@ -130,10 +130,14 @@ function HomeInner() {
       toast.success("Welcome to Pro! Your plan is now active.");
     }
     const urlParam = searchParams.get("url");
-    if (urlParam) {
+    if (!urlParam) return;
+    // Deferred so the extraction's state updates don't run synchronously inside the effect.
+    // The ref is set in the callback so Strict Mode's mount/unmount/mount still starts once.
+    const t = setTimeout(() => {
       autoStartedRef.current = true;
       handleSubmit(urlParam);
-    }
+    }, 0);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

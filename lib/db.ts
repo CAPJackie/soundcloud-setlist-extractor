@@ -8,7 +8,6 @@ let db: Db;
 
 declare global {
   // Persist connection across hot reloads in dev
-  // eslint-disable-next-line no-var
   var _mongoClient: MongoClient | undefined;
 }
 

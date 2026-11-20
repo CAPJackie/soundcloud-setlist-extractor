@@ -66,8 +66,8 @@ export default function LoginPage() {
   }, [status, router]);
 
   const [mode, setMode] = useState<"signin" | "register">("signin");
+  // Read by the resolver at validation time; kept in sync in switchMode (the only mode setter).
   const modeRef = useRef(mode);
-  modeRef.current = mode;
 
   const passwordRef = useRef<HTMLInputElement>(null);
   usePreventPasswordCopy([passwordRef]);
@@ -109,10 +109,13 @@ export default function LoginPage() {
       return;
     }
 
-    window.location.href = "/";
+    // Full reload (not router.push) so the new session cookie is picked up by every server component.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.assign("/");
   }
 
   function switchMode(next: "signin" | "register") {
+    modeRef.current = next;
     setMode(next);
     form.clearErrors();
   }

@@ -77,8 +77,10 @@ export default function TrackList({
     }
   }, [tracks.length]);
 
-  // Reset Spotify state when a new extraction starts
-  useEffect(() => {
+  // Reset Spotify state when a new extraction starts (adjust state during render, not in an effect)
+  const [prevLoading, setPrevLoading] = useState(loading);
+  if (loading !== prevLoading) {
+    setPrevLoading(loading);
     if (loading) {
       setExportState("idle");
       setSpotifyFoundMap({});
@@ -86,7 +88,7 @@ export default function TrackList({
       setExportError(null);
       setFoundCount(0);
     }
-  }, [loading]);
+  }
 
   const copyText = () => {
     const text = tracks
@@ -195,7 +197,7 @@ export default function TrackList({
 
       {doneWithNothing && !incomplete && (
         <div className="rounded-xl border border-zinc-200 bg-zinc-100 px-5 py-4 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-400">
-          No tracks could be identified from this mix. ACRCloud didn't match any of the audio
+          No tracks could be identified from this mix. ACRCloud didn&apos;t match any of the audio
           samples.
         </div>
       )}
