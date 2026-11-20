@@ -23,7 +23,7 @@ Paste a SoundCloud mix URL → tracklist streamed to the browser via SSE (`/api/
 ```bash
 npm run dev        # use http://127.0.0.1:3000 (not localhost — Spotify redirect policy)
 npm run dev:log    # also writes dev.log; read it instead of terminal output for long runs
-npm run validate   # lint + typecheck + build
+npm run validate   # lint + typecheck + build — runs automatically on git push (husky)
 ```
 
 Env: see `.env.example` (Mongo, ACRCloud, Spotify, `AUTH_*`, `ADMIN_EMAILS`, Stripe, Resend…).
