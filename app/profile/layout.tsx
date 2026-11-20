@@ -7,10 +7,10 @@ export default async function ProfileLayout({ children }: { children: React.Reac
   if (!session?.user) redirect("/login");
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center px-4 py-10">
-      <div className="w-full max-w-2xl flex gap-8">
+    <div className="flex min-h-screen flex-col items-center bg-zinc-50 px-4 py-10 dark:bg-zinc-950">
+      <div className="flex w-full max-w-2xl gap-8">
         <ProfileSidebar />
-        <div className="flex-1 min-w-0">{children}</div>
+        <div className="min-w-0 flex-1">{children}</div>
       </div>
     </div>
   );

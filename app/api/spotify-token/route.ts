@@ -6,7 +6,8 @@ import { NextRequest, NextResponse } from "next/server";
 // through the server instead. Entries auto-expire after 2 minutes.
 
 type Entry = { token?: string; error?: string; expires: number };
-const store: Map<string, Entry> = (globalThis as { __spotifyTokenStore?: Map<string, Entry> }).__spotifyTokenStore ?? new Map();
+const store: Map<string, Entry> =
+  (globalThis as { __spotifyTokenStore?: Map<string, Entry> }).__spotifyTokenStore ?? new Map();
 (globalThis as { __spotifyTokenStore?: Map<string, Entry> }).__spotifyTokenStore = store;
 
 function sweep() {

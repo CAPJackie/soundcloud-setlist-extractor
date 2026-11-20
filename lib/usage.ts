@@ -33,13 +33,16 @@ export async function getMonthlyUsage(email: string, period = currentPeriod()): 
 }
 
 /** Increment a user's extraction count for the current period. Call ONLY on a real (uncached) extraction. */
-export async function incrementMonthlyUsage(email: string, period = currentPeriod()): Promise<void> {
+export async function incrementMonthlyUsage(
+  email: string,
+  period = currentPeriod(),
+): Promise<void> {
   const e = email.toLowerCase().trim();
   const col = await collection();
   await col.updateOne(
     { _id: `${e}:${period}` },
     { $inc: { extractions: 1 }, $setOnInsert: { email: e, period } },
-    { upsert: true }
+    { upsert: true },
   );
 }
 
@@ -57,7 +60,14 @@ export interface Quota {
 export async function getQuota(email: string): Promise<Quota> {
   if (isAdmin(email)) {
     const used = await getMonthlyUsage(email);
-    return { plan: "pro", used, limit: PRO_MONTHLY_LIMIT, remaining: PRO_MONTHLY_LIMIT, allowed: true, admin: true };
+    return {
+      plan: "pro",
+      used,
+      limit: PRO_MONTHLY_LIMIT,
+      remaining: PRO_MONTHLY_LIMIT,
+      allowed: true,
+      admin: true,
+    };
   }
   const [plan, used] = await Promise.all([getUserPlan(email), getMonthlyUsage(email)]);
   const limit = planLimit(plan);

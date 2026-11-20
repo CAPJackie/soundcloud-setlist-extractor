@@ -39,7 +39,7 @@ const noApostrophes = (s: string) => s.replace(/['’`´]/g, "");
 /** Does a platform result (candidate) correspond to our track? */
 export function isSameTrack(
   ours: { artist: string; title: string },
-  candidate: { artist: string; title: string }
+  candidate: { artist: string; title: string },
 ): boolean {
   const ourTitle = normalizeTitle(noApostrophes(ours.title));
   const theirTitle = normalizeTitle(noApostrophes(candidate.title));
@@ -66,11 +66,17 @@ async function findOnApple(artist: string, title: string): Promise<string | null
   const res = await fetch(`https://itunes.apple.com/search?term=${term}&entity=song&limit=10`);
   if (res.status === 403 || res.status === 429) throw new LookupRateLimited("itunes");
   if (!res.ok) throw new Error(`itunes ${res.status}`);
-  const data = (await res.json()) as { results?: { artistName?: string; trackName?: string; trackViewUrl?: string }[] };
+  const data = (await res.json()) as {
+    results?: { artistName?: string; trackName?: string; trackViewUrl?: string }[];
+  };
   const hit = (data.results ?? []).find(
-    (r) => r.trackViewUrl && isSameTrack({ artist, title }, { artist: r.artistName ?? "", title: r.trackName ?? "" })
+    (r) =>
+      r.trackViewUrl &&
+      isSameTrack({ artist, title }, { artist: r.artistName ?? "", title: r.trackName ?? "" }),
   );
-  return hit?.trackViewUrl ? hit.trackViewUrl.replace(/([?&])uo=\d+&?/, "$1").replace(/[?&]$/, "") : null;
+  return hit?.trackViewUrl
+    ? hit.trackViewUrl.replace(/([?&])uo=\d+&?/, "$1").replace(/[?&]$/, "")
+    : null;
 }
 
 // ---------- Spotify (client credentials) ----------
@@ -83,10 +89,15 @@ export function spotifyLookupEnabled(): boolean {
 
 async function getSpotifyAppToken(): Promise<string> {
   if (spotifyToken && spotifyToken.expires > Date.now() + 60_000) return spotifyToken.value;
-  const basic = Buffer.from(`${process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`).toString("base64");
+  const basic = Buffer.from(
+    `${process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`,
+  ).toString("base64");
   const res = await fetch("https://accounts.spotify.com/api/token", {
     method: "POST",
-    headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/x-www-form-urlencoded" },
+    headers: {
+      Authorization: `Basic ${basic}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
     body: "grant_type=client_credentials",
   });
   if (!res.ok) throw new Error(`spotify token ${res.status}`);
@@ -104,10 +115,17 @@ async function findOnSpotify(artist: string, title: string): Promise<string | nu
   if (res.status === 429) throw new LookupRateLimited("spotify");
   if (!res.ok) throw new Error(`spotify search ${res.status}`);
   const data = (await res.json()) as {
-    tracks?: { items?: { name: string; artists: { name: string }[]; external_urls?: { spotify?: string } }[] };
+    tracks?: {
+      items?: { name: string; artists: { name: string }[]; external_urls?: { spotify?: string } }[];
+    };
   };
   const hit = (data.tracks?.items ?? []).find(
-    (t) => t.external_urls?.spotify && isSameTrack({ artist, title }, { artist: t.artists.map((a) => a.name).join(", "), title: t.name })
+    (t) =>
+      t.external_urls?.spotify &&
+      isSameTrack(
+        { artist, title },
+        { artist: t.artists.map((a) => a.name).join(", "), title: t.name },
+      ),
   );
   return hit?.external_urls?.spotify ?? null;
 }
@@ -126,7 +144,8 @@ interface CachedLinks {
 // "Not found" is retried after this long: new releases reach the stores over time.
 const NOT_FOUND_RETRY_MS = 14 * 24 * 3600 * 1000;
 
-const cacheKey = (artist: string, title: string) => `${normalizeTitle(artist)}|${normalizeTitle(title)}`;
+const cacheKey = (artist: string, title: string) =>
+  `${normalizeTitle(artist)}|${normalizeTitle(title)}`;
 
 function needsLookup(found: string | null | undefined, checkedAt: Date | undefined): boolean {
   if (found) return false;
@@ -134,7 +153,9 @@ function needsLookup(found: string | null | undefined, checkedAt: Date | undefin
   return Date.now() - checkedAt.getTime() > NOT_FOUND_RETRY_MS;
 }
 
-export async function resolveTrackLinks(tracks: { artist: string; title: string }[]): Promise<TrackLinks[]> {
+export async function resolveTrackLinks(
+  tracks: { artist: string; title: string }[],
+): Promise<TrackLinks[]> {
   const db = await getDb();
   const col = db.collection<CachedLinks>("track_links");
   const keys = tracks.map((t) => cacheKey(t.artist, t.title));
@@ -174,8 +195,12 @@ export async function resolveTrackLinks(tracks: { artist: string; title: string 
     }
 
     results.push({
-      spotify: doc.spotify ? { url: doc.spotify, direct: true } : { url: spotifySearchUrl(artist, title), direct: false },
-      apple: doc.apple ? { url: doc.apple, direct: true } : { url: appleSearchUrl(artist, title), direct: false },
+      spotify: doc.spotify
+        ? { url: doc.spotify, direct: true }
+        : { url: spotifySearchUrl(artist, title), direct: false },
+      apple: doc.apple
+        ? { url: doc.apple, direct: true }
+        : { url: appleSearchUrl(artist, title), direct: false },
     });
   }
   return results;

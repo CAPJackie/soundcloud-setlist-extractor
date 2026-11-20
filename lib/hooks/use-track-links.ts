@@ -24,7 +24,10 @@ export function searchLinks(artist: string, title: string): TrackLinks {
  * Direct Spotify / Apple Music links for each track (by index). Only fetched when
  * `enabled` (i.e. the list is final, not while an extraction is still streaming).
  */
-export function useTrackLinks(tracks: { artist: string; title: string }[], enabled: boolean): (TrackLinks | undefined)[] {
+export function useTrackLinks(
+  tracks: { artist: string; title: string }[],
+  enabled: boolean,
+): (TrackLinks | undefined)[] {
   const [result, setResult] = useState<{ key: string; links: TrackLinks[] } | null>(null);
   const key = tracks.map((t) => `${t.artist}|${t.title}`).join("\n");
 
@@ -34,7 +37,9 @@ export function useTrackLinks(tracks: { artist: string; title: string }[], enabl
     fetch("/api/track-links", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tracks: tracks.slice(0, 100).map((t) => ({ artist: t.artist, title: t.title })) }),
+      body: JSON.stringify({
+        tracks: tracks.slice(0, 100).map((t) => ({ artist: t.artist, title: t.title })),
+      }),
     })
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { links?: TrackLinks[] } | null) => {

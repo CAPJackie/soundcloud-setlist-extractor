@@ -14,9 +14,7 @@ type FormFieldContextValue<
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
 > = { name: TName };
 
-const FormFieldContext = React.createContext<FormFieldContextValue>(
-  {} as FormFieldContextValue
-);
+const FormFieldContext = React.createContext<FormFieldContextValue>({} as FormFieldContextValue);
 
 function FormField<
   TFieldValues extends FieldValues = FieldValues,
@@ -51,9 +49,7 @@ const useFormField = () => {
 
 type FormItemContextValue = { id: string };
 
-const FormItemContext = React.createContext<FormItemContextValue>(
-  {} as FormItemContextValue
-);
+const FormItemContext = React.createContext<FormItemContextValue>({} as FormItemContextValue);
 
 function FormItem({
   className,
@@ -68,17 +64,10 @@ function FormItem({
   );
 }
 
-function FormLabel({
-  className,
-  ...props
-}: React.ComponentProps<typeof Label>) {
+function FormLabel({ className, ...props }: React.ComponentProps<typeof Label>) {
   const { error, formItemId } = useFormField();
   return (
-    <Label
-      className={cn(error && "text-destructive", className)}
-      htmlFor={formItemId}
-      {...props}
-    />
+    <Label className={cn(error && "text-destructive", className)} htmlFor={formItemId} {...props} />
   );
 }
 
@@ -87,24 +76,19 @@ function FormControl({ ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       id={formItemId}
-      aria-describedby={
-        !error ? formDescriptionId : `${formDescriptionId} ${formMessageId}`
-      }
+      aria-describedby={!error ? formDescriptionId : `${formDescriptionId} ${formMessageId}`}
       aria-invalid={!!error}
       {...props}
     />
   );
 }
 
-function FormDescription({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLParagraphElement>) {
+function FormDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
   const { formDescriptionId } = useFormField();
   return (
     <p
       id={formDescriptionId}
-      className={cn("text-muted-foreground text-xs", className)}
+      className={cn("text-xs text-muted-foreground", className)}
       {...props}
     />
   );
@@ -121,7 +105,7 @@ function FormMessage({
   return (
     <p
       id={formMessageId}
-      className={cn("text-destructive text-xs font-medium", className)}
+      className={cn("text-xs font-medium text-destructive", className)}
       {...props}
     >
       {body}

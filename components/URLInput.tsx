@@ -17,8 +17,11 @@ export default function URLInput({ onSubmit, loading }: Props) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full flex flex-col gap-3">
-      <label htmlFor="url" className="text-sm font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+    <form onSubmit={handleSubmit} className="flex w-full flex-col gap-3">
+      <label
+        htmlFor="url"
+        className="text-sm font-medium tracking-wider text-zinc-500 uppercase dark:text-zinc-400"
+      >
         SoundCloud URL
       </label>
       <div className="flex gap-2">
@@ -29,12 +32,12 @@ export default function URLInput({ onSubmit, loading }: Props) {
           required
           disabled={loading}
           placeholder="https://soundcloud.com/artist/set-name"
-          className="flex-1 rounded-xl h-auto px-4 py-3 text-sm placeholder:text-zinc-400 dark:placeholder:text-zinc-600 disabled:opacity-50"
+          className="h-auto flex-1 rounded-xl px-4 py-3 text-sm placeholder:text-zinc-400 disabled:opacity-50 dark:placeholder:text-zinc-600"
         />
         <button
           type="submit"
           disabled={loading}
-          className="rounded-xl bg-orange-500 hover:bg-orange-600 active:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold px-6 py-3 text-sm transition"
+          className="rounded-xl bg-orange-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-orange-600 active:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading ? "Analyzing..." : "Extract"}
         </button>

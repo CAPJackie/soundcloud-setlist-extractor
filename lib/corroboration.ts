@@ -8,7 +8,15 @@
 import { normalizeTitle } from "./sampling-plan";
 
 // Placeholders that say nothing about who made the track.
-const IGNORED_ARTISTS = new Set(["unknown", "unknown artist", "various artists", "various", "va", "id", "n a"]);
+const IGNORED_ARTISTS = new Set([
+  "unknown",
+  "unknown artist",
+  "various artists",
+  "various",
+  "va",
+  "id",
+  "n a",
+]);
 
 /** "Hertz Collision, Sera J" → ["hertz collision", "sera j"]; "A feat. B" → ["a", "b"]. */
 export function artistKeys(artist: string): string[] {

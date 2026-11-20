@@ -13,17 +13,19 @@ export default function DigTracks({ tracks }: { tracks: DigTrack[] }) {
       {tracks.map((t, i) => (
         <div
           key={`${t.artist}-${t.title}`}
-          className="flex items-center gap-4 px-5 py-3.5 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900"
+          className="flex items-center gap-4 rounded-xl border border-zinc-100 bg-white px-5 py-3.5 dark:border-zinc-800 dark:bg-zinc-900"
         >
-          <div className="flex flex-col min-w-0 flex-1">
-            <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">{t.title}</span>
-            <span className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+              {t.title}
+            </span>
+            <span className="truncate text-xs text-zinc-500 dark:text-zinc-400">
               {t.artist}
               {t.label && <span className="text-zinc-400 dark:text-zinc-500"> · {t.label}</span>}
             </span>
             <Link
               href={`/sets/${t.setId}`}
-              className="text-[11px] text-zinc-400 dark:text-zinc-500 hover:text-orange-500 truncate w-fit max-w-full"
+              className="w-fit max-w-full truncate text-[11px] text-zinc-400 hover:text-orange-500 dark:text-zinc-500"
             >
               heard in {t.setTitle}
               {t.timestamp ? ` @ ${t.timestamp}` : ""}

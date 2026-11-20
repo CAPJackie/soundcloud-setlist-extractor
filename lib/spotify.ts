@@ -50,7 +50,7 @@ export async function openSpotifyAuthPopup(): Promise<string> {
     const popup = window.open(
       `https://accounts.spotify.com/authorize?${params}`,
       "spotify-auth",
-      "width=500,height=700,left=200,top=100"
+      "width=500,height=700,left=200,top=100",
     );
 
     if (!popup) {
@@ -114,7 +114,11 @@ export function clearToken(): void {
   sessionStorage.removeItem("spotify_token");
 }
 
-export async function searchTrack(token: string, artist: string, title: string): Promise<string | null> {
+export async function searchTrack(
+  token: string,
+  artist: string,
+  title: string,
+): Promise<string | null> {
   const q = encodeURIComponent(`track:${title} artist:${artist}`);
   const res = await fetch(`https://api.spotify.com/v1/search?q=${q}&type=track&limit=1`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -124,8 +128,10 @@ export async function searchTrack(token: string, artist: string, title: string):
   return (data.tracks?.items?.[0]?.uri as string) ?? null;
 }
 
-
-export async function createPlaylist(token: string, name: string): Promise<{ id: string; url: string }> {
+export async function createPlaylist(
+  token: string,
+  name: string,
+): Promise<{ id: string; url: string }> {
   const res = await fetch(`https://api.spotify.com/v1/me/playlists`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -136,13 +142,24 @@ export async function createPlaylist(token: string, name: string): Promise<{ id:
   return { id: data.id, url: data.external_urls.spotify };
 }
 
-export async function addTracksToPlaylist(token: string, playlistId: string, uris: string[]): Promise<void> {
+export async function addTracksToPlaylist(
+  token: string,
+  playlistId: string,
+  uris: string[],
+): Promise<void> {
   // Verify we can read the playlist first
   const check = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   const checkBody = await check.json();
-  console.log("[spotify] playlist owner:", checkBody.owner?.id, "collaborative:", checkBody.collaborative, "public:", checkBody.public);
+  console.log(
+    "[spotify] playlist owner:",
+    checkBody.owner?.id,
+    "collaborative:",
+    checkBody.collaborative,
+    "public:",
+    checkBody.public,
+  );
 
   for (let i = 0; i < uris.length; i += 100) {
     const batch = uris.slice(i, i + 100);

@@ -34,9 +34,36 @@ export interface SetContext {
 // Words that say nothing about who someone is: a listener called "Techno" or
 // "Berlin" must not count as the artist just because the title contains it.
 const GENERIC_NAME_WORDS = new Set([
-  "dj", "djs", "official", "music", "records", "recordings", "sounds", "sound", "audio", "live", "set", "sets",
-  "mix", "mixes", "mixed", "by", "the", "techno", "house", "berlin", "berghain", "club", "radio", "podcast",
-  "underground", "rave", "b2b", "at", "and", "vs",
+  "dj",
+  "djs",
+  "official",
+  "music",
+  "records",
+  "recordings",
+  "sounds",
+  "sound",
+  "audio",
+  "live",
+  "set",
+  "sets",
+  "mix",
+  "mixes",
+  "mixed",
+  "by",
+  "the",
+  "techno",
+  "house",
+  "berlin",
+  "berghain",
+  "club",
+  "radio",
+  "podcast",
+  "underground",
+  "rave",
+  "b2b",
+  "at",
+  "and",
+  "vs",
 ]);
 
 /** "◽◾ JARYMANE ◾◽" → "jarymane", "Parallx [ISARN]" → "parallx", "jary_mane" → "jary mane". */
@@ -51,28 +78,39 @@ export function nameKey(name: string): string {
 }
 
 const compact = (k: string) => k.replace(/ /g, "");
-const isDistinctive = (k: string) => compact(k).length >= 4 && k.split(" ").some((w) => !GENERIC_NAME_WORDS.has(w));
+const isDistinctive = (k: string) =>
+  compact(k).length >= 4 && k.split(" ").some((w) => !GENERIC_NAME_WORDS.has(w));
 
 /** Is this commenter the DJ of the set? */
 export function isSetArtist(
   c: Pick<SoundCloudComment, "userId" | "username" | "userPermalink">,
-  ctx: SetContext
+  ctx: SetContext,
 ): boolean {
   if (c.userId != null && ctx.uploaderId != null && c.userId === ctx.uploaderId) return true;
 
   const authorKeys = [nameKey(c.username), nameKey(c.userPermalink)].filter(isDistinctive);
   if (authorKeys.length === 0) return false;
-  const uploaderKeys = [nameKey(ctx.uploaderName), nameKey(ctx.uploaderPermalink)].filter(isDistinctive);
+  const uploaderKeys = [nameKey(ctx.uploaderName), nameKey(ctx.uploaderPermalink)].filter(
+    isDistinctive,
+  );
   const titleKey = nameKey(ctx.title);
 
   return authorKeys.some((a) => {
     // Same name as the uploader, spacing aside ("jary mane" = "jarymane"), or one contains
     // the other as whole words ("parallx" ⊂ "parallx bln").
-    if (uploaderKeys.some((u) => compact(u) === compact(a) || ` ${u} `.includes(` ${a} `) || ` ${a} `.includes(` ${u} `))) {
+    if (
+      uploaderKeys.some(
+        (u) =>
+          compact(u) === compact(a) || ` ${u} `.includes(` ${a} `) || ` ${a} `.includes(` ${u} `),
+      )
+    ) {
       return true;
     }
     // Named in the title: as whole words, or glued ("Mixed by JARYMANE" vs "jary_mane").
-    return ` ${titleKey} `.includes(` ${a} `) || (compact(a).length >= 5 && compact(titleKey).includes(compact(a)));
+    return (
+      ` ${titleKey} `.includes(` ${a} `) ||
+      (compact(a).length >= 5 && compact(titleKey).includes(compact(a)))
+    );
   });
 }
 
@@ -101,11 +139,19 @@ function parseTime(m: RegExpMatchArray): number {
 
 function plausible(part: string): boolean {
   const words = part.split(/\s+/).length;
-  return part.length >= 2 && part.length <= 80 && words <= 8 && /\p{L}/u.test(part) && !REACTION_WORDS.test(part);
+  return (
+    part.length >= 2 &&
+    part.length <= 80 &&
+    words <= 8 &&
+    /\p{L}/u.test(part) &&
+    !REACTION_WORDS.test(part)
+  );
 }
 
 /** One comment line → {artist, title, time written in it} or null. */
-export function parseCommentLine(raw: string): { artist: string; title: string; writtenSecs: number | null } | null {
+export function parseCommentLine(
+  raw: string,
+): { artist: string; title: string; writtenSecs: number | null } | null {
   if (raw.includes("?")) return null; // questions, not answers
   let line = cleanLine(raw);
   let writtenSecs: number | null = null;
@@ -144,7 +190,8 @@ export function parseCommentIds(comments: SoundCloudComment[], ctx: SetContext):
 
       const key = normalizeTitle(parsed.title);
       if (!key) continue;
-      const offsetSecs = parsed.writtenSecs ?? (c.timestampMs != null ? Math.floor(c.timestampMs / 1000) : null);
+      const offsetSecs =
+        parsed.writtenSecs ?? (c.timestampMs != null ? Math.floor(c.timestampMs / 1000) : null);
       const existing = byKey.get(key);
       if (existing) {
         existing.users.add(c.username);
@@ -170,6 +217,12 @@ export function parseCommentIds(comments: SoundCloudComment[], ctx: SetContext):
   }
 
   return [...byKey.values()]
-    .map((t) => ({ artist: t.artist, title: t.title, offsetSecs: t.offsetSecs, mentions: t.mentions, fromArtist: t.fromArtist }))
+    .map((t) => ({
+      artist: t.artist,
+      title: t.title,
+      offsetSecs: t.offsetSecs,
+      mentions: t.mentions,
+      fromArtist: t.fromArtist,
+    }))
     .sort((a, b) => (a.offsetSecs ?? Infinity) - (b.offsetSecs ?? Infinity));
 }

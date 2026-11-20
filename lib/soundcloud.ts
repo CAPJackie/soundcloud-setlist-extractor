@@ -59,7 +59,10 @@ export function parseSoundCloudTrack(html: string): SoundCloudTrack {
     transcodings: media?.transcodings ?? [],
     artworkUrl: d.artwork_url ? String(d.artwork_url) : null,
     username: String((d.user as Record<string, unknown>)?.username ?? ""),
-    userId: typeof (d.user as Record<string, unknown>)?.id === "number" ? ((d.user as Record<string, unknown>).id as number) : null,
+    userId:
+      typeof (d.user as Record<string, unknown>)?.id === "number"
+        ? ((d.user as Record<string, unknown>).id as number)
+        : null,
     userPermalink: String((d.user as Record<string, unknown>)?.permalink ?? ""),
     publishedAt: createdAt instanceof Date && !isNaN(createdAt.getTime()) ? createdAt : null,
   };
@@ -101,7 +104,7 @@ export async function extractClientId(html: string): Promise<string | null> {
       const match = js.match(/client_id[=:]["']([a-zA-Z0-9]{20,})["']/);
       if (!match) throw new Error("not found");
       return match[1];
-    })
+    }),
   );
 
   for (const r of results) {
@@ -128,7 +131,7 @@ export async function fetchSoundCloudPageHtml(url: string): Promise<string> {
 
 export async function resolveStreamUrl(
   transcodingUrl: string,
-  clientId: string
+  clientId: string,
 ): Promise<string | null> {
   try {
     const res = await fetch(`${transcodingUrl}?client_id=${clientId}`, {
@@ -173,14 +176,16 @@ export interface SoundCloudComment {
 export async function fetchSoundCloudComments(
   trackId: number,
   clientId: string,
-  max = 3000
+  max = 3000,
 ): Promise<SoundCloudComment[]> {
   const out: SoundCloudComment[] = [];
   let next: string | null =
     `https://api-v2.soundcloud.com/tracks/${trackId}/comments?threaded=0&filter_replies=0&limit=200&offset=0`;
   try {
     while (next && out.length < max) {
-      const pageUrl: string = next.includes("client_id=") ? next : `${next}${next.includes("?") ? "&" : "?"}client_id=${clientId}`;
+      const pageUrl: string = next.includes("client_id=")
+        ? next
+        : `${next}${next.includes("?") ? "&" : "?"}client_id=${clientId}`;
       const res = await fetch(pageUrl, {
         headers: {
           "User-Agent":
@@ -205,7 +210,12 @@ export async function fetchSoundCloudComments(
           body: String(c.body ?? ""),
           timestampMs: typeof c.timestamp === "number" ? c.timestamp : null,
           username: String(c.user?.username ?? ""),
-          userId: typeof c.user?.id === "number" ? c.user.id : typeof c.user_id === "number" ? c.user_id : null,
+          userId:
+            typeof c.user?.id === "number"
+              ? c.user.id
+              : typeof c.user_id === "number"
+                ? c.user_id
+                : null,
           userPermalink: String(c.user?.permalink ?? ""),
         });
       }
@@ -228,7 +238,11 @@ export interface SoundCloudRelated {
 }
 
 /** SoundCloud's "related tracks" for a track (mixes sets and single tracks). Never throws. */
-export async function fetchRelatedTracks(trackId: number, clientId: string, limit = 30): Promise<SoundCloudRelated[]> {
+export async function fetchRelatedTracks(
+  trackId: number,
+  clientId: string,
+  limit = 30,
+): Promise<SoundCloudRelated[]> {
   try {
     const res = await fetch(
       `https://api-v2.soundcloud.com/tracks/${trackId}/related?limit=${limit}&client_id=${clientId}`,
@@ -237,7 +251,7 @@ export async function fetchRelatedTracks(trackId: number, clientId: string, limi
           "User-Agent":
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         },
-      }
+      },
     );
     if (!res.ok) {
       console.warn(`[soundcloud] related fetch failed: ${res.status}`);

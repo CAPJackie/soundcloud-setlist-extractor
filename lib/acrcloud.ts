@@ -41,14 +41,16 @@ interface AcrResponse {
 
 export async function identifyAudio(
   audioBytes: Buffer,
-  offsetSecs: number
+  offsetSecs: number,
 ): Promise<AcrMatch | null> {
   const host = process.env.ACRCLOUD_HOST;
   const accessKey = process.env.ACRCLOUD_ACCESS_KEY;
   const accessSecret = process.env.ACRCLOUD_ACCESS_SECRET;
 
   if (!host || !accessKey || !accessSecret) {
-    throw new Error("ACRCloud env vars not set (ACRCLOUD_HOST, ACRCLOUD_ACCESS_KEY, ACRCLOUD_ACCESS_SECRET)");
+    throw new Error(
+      "ACRCloud env vars not set (ACRCLOUD_HOST, ACRCLOUD_ACCESS_KEY, ACRCLOUD_ACCESS_SECRET)",
+    );
   }
 
   const httpMethod = "POST";
@@ -58,12 +60,9 @@ export async function identifyAudio(
   const timestamp = Math.floor(Date.now() / 1000).toString();
 
   const stringToSign = [httpMethod, httpUri, accessKey, dataType, signatureVersion, timestamp].join(
-    "\n"
+    "\n",
   );
-  const signature = crypto
-    .createHmac("sha1", accessSecret)
-    .update(stringToSign)
-    .digest("base64");
+  const signature = crypto.createHmac("sha1", accessSecret).update(stringToSign).digest("base64");
 
   const form = new FormData();
   form.append("access_key", accessKey);
@@ -75,7 +74,9 @@ export async function identifyAudio(
   const { mime, filename } = audioFileInfo(audioBytes);
   form.append("sample", new Blob([new Uint8Array(audioBytes)], { type: mime }), filename);
 
-  console.log(`[acr] identify at ${Math.floor(offsetSecs / 60)}:${String(Math.floor(offsetSecs % 60)).padStart(2, "0")}`);
+  console.log(
+    `[acr] identify at ${Math.floor(offsetSecs / 60)}:${String(Math.floor(offsetSecs % 60)).padStart(2, "0")}`,
+  );
 
   const res = await fetch(`https://${host}${httpUri}`, {
     method: "POST",
@@ -101,7 +102,7 @@ export async function identifyAudio(
   console.log(
     `[acr] matched: "${music.title}" by ${artist} (score: ${music.score ?? "?"}, ` +
       `at ${music.play_offset_ms != null ? Math.round(music.play_offset_ms / 1000) + "s" : "?"} of ` +
-      `${music.duration_ms != null ? Math.round(music.duration_ms / 1000) + "s" : "?"})`
+      `${music.duration_ms != null ? Math.round(music.duration_ms / 1000) + "s" : "?"})`,
   );
 
   return {
@@ -110,7 +111,8 @@ export async function identifyAudio(
     album: music.album?.name,
     offsetSecs,
     score: music.score,
-    playOffsetSecs: typeof music.play_offset_ms === "number" ? music.play_offset_ms / 1000 : undefined,
+    playOffsetSecs:
+      typeof music.play_offset_ms === "number" ? music.play_offset_ms / 1000 : undefined,
     durationSecs: typeof music.duration_ms === "number" ? music.duration_ms / 1000 : undefined,
     label: typeof music.label === "string" && music.label.trim() ? music.label.trim() : undefined,
   };

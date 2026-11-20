@@ -35,15 +35,13 @@ export default function LikeButton({ setlistId, initialLiked }: Props) {
       disabled={pending}
       aria-label={liked ? "Unlike set" : "Like set"}
       className={`transition-colors disabled:opacity-50 ${
-        liked
-          ? "text-red-500"
-          : "text-zinc-300 dark:text-zinc-600 hover:text-red-400"
+        liked ? "text-red-500" : "text-zinc-300 hover:text-red-400 dark:text-zinc-600"
       }`}
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 24 24"
-        className="w-4 h-4"
+        className="h-4 w-4"
         fill={liked ? "currentColor" : "none"}
         stroke="currentColor"
         strokeWidth={2}

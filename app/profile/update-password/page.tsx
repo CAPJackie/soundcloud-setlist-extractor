@@ -58,7 +58,7 @@ export default function UpdatePasswordPage() {
       <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">Update Password</h1>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4 max-w-sm">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex max-w-sm flex-col gap-4">
           <FormField
             control={form.control}
             name="currentPassword"
@@ -120,7 +120,7 @@ export default function UpdatePasswordPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="rounded-lg bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-semibold py-2.5 transition"
+            className="rounded-lg bg-orange-500 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-600 disabled:opacity-50"
           >
             {isSubmitting ? "Updating…" : "Update password"}
           </button>

@@ -28,15 +28,12 @@ export default async function RootLayout({
   const showNav = !!session?.user;
 
   return (
-    <html
-      lang="en"
-      className={`${roboto.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">
+    <html lang="en" className={`${roboto.variable} h-full antialiased`}>
+      <body className="flex min-h-full flex-col">
         <SessionProvider session={session}>
           <Toaster position="top-right" richColors />
           {showNav && <TopNav />}
-          <div className={showNav ? "pt-14 flex flex-col flex-1" : "flex flex-col flex-1"}>
+          <div className={showNav ? "flex flex-1 flex-col pt-14" : "flex flex-1 flex-col"}>
             {children}
           </div>
           <Footer />

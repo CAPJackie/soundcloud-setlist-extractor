@@ -39,17 +39,14 @@ export async function getUserPlan(email: string): Promise<UserPlan> {
 
 export async function setStripeCustomerId(email: string, stripeCustomerId: string): Promise<void> {
   const col = await collection();
-  await col.updateOne(
-    { email: email.toLowerCase().trim() },
-    { $set: { stripeCustomerId } }
-  );
+  await col.updateOne({ email: email.toLowerCase().trim() }, { $set: { stripeCustomerId } });
 }
 
 /** Set the billing plan + subscription status. Keyed by email (preferred) or stripe customer id. */
 export async function setUserPlan(
   by: { email?: string; stripeCustomerId?: string },
   plan: UserPlan,
-  subscriptionStatus?: string
+  subscriptionStatus?: string,
 ): Promise<void> {
   const col = await collection();
   const filter = by.email
@@ -71,10 +68,7 @@ export async function createUser(email: string, passwordHash: string): Promise<v
 
 export async function updateUserPassword(email: string, passwordHash: string): Promise<void> {
   const col = await collection();
-  await col.updateOne(
-    { email: email.toLowerCase().trim() },
-    { $set: { passwordHash } }
-  );
+  await col.updateOne({ email: email.toLowerCase().trim() }, { $set: { passwordHash } });
 }
 
 export async function upsertGoogleUser(email: string): Promise<void> {
@@ -82,6 +76,6 @@ export async function upsertGoogleUser(email: string): Promise<void> {
   await col.updateOne(
     { email: email.toLowerCase().trim() },
     { $setOnInsert: { email: email.toLowerCase().trim(), createdAt: new Date() } },
-    { upsert: true }
+    { upsert: true },
   );
 }

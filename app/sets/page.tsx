@@ -10,8 +10,8 @@ export default async function SetsPage() {
   const userEmail = session?.user?.email ?? null;
 
   return (
-    <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center px-4 py-10">
-      <div className="w-full max-w-2xl flex flex-col gap-6">
+    <main className="flex min-h-screen flex-col items-center bg-zinc-50 px-4 py-10 dark:bg-zinc-950">
+      <div className="flex w-full max-w-2xl flex-col gap-6">
         <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">All Sets</h1>
         <div className="flex flex-col gap-2">
           {sets.length === 0 && (
@@ -20,7 +20,7 @@ export default async function SetsPage() {
           {sets.map((set) => {
             const id = (set._id as unknown as ObjectId).toString();
             const date = new Date(
-              (set.publishedAt as Date | null) ?? (set.cachedAt as Date)
+              (set.publishedAt as Date | null) ?? (set.cachedAt as Date),
             ).toLocaleDateString("en-US", {
               year: "numeric",
               month: "short",
@@ -34,17 +34,17 @@ export default async function SetsPage() {
               <div key={id} className="flex items-center gap-2">
                 <Link
                   href={`/sets/${id}`}
-                  className="flex-1 flex items-center justify-between gap-4 px-5 py-4 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-orange-400/60 transition group min-w-0"
+                  className="group flex min-w-0 flex-1 items-center justify-between gap-4 rounded-xl border border-zinc-100 bg-white px-5 py-4 transition hover:border-orange-400/60 dark:border-zinc-800 dark:bg-zinc-900"
                 >
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-orange-500 transition">
+                  <div className="flex min-w-0 flex-col">
+                    <span className="truncate text-sm font-semibold text-zinc-900 transition group-hover:text-orange-500 dark:text-zinc-100">
                       {set.title as string}
                     </span>
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                    <span className="truncate text-xs text-zinc-500 dark:text-zinc-400">
                       {set.username as string}
                     </span>
                   </div>
-                  <div className="flex items-center gap-4 shrink-0 text-xs text-zinc-400 dark:text-zinc-500">
+                  <div className="flex shrink-0 items-center gap-4 text-xs text-zinc-400 dark:text-zinc-500">
                     {Boolean(set.incomplete) && (
                       <IncompleteBadge
                         resumeFromSecs={set.resumeFromSecs as number | null | undefined}

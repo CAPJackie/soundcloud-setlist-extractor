@@ -139,7 +139,11 @@ export function stepAfterMatch(prev: TrackedMatch | undefined, cur: MatchTiming)
   }
 
   if (sameSong) {
-    return { step: SAME_TRACK_STEP_SECS, reason: `same song still playing, no usable timing${rateNote}`, tracked };
+    return {
+      step: SAME_TRACK_STEP_SECS,
+      reason: `same song still playing, no usable timing${rateNote}`,
+      tracked,
+    };
   }
   return { step: MAX_STEP_SECS, reason: "no song timing from recognizer", tracked };
 }
@@ -172,9 +176,18 @@ export function shouldRetry(mode: MixMode, retries: number, retryHits: number): 
   return mode === "clean" && retriesWorthIt(retries, retryHits);
 }
 
-export function stepAfterMiss(retriedAndMissed: boolean, mode: MixMode): { step: number; reason: string } {
-  if (retriedAndMissed) return { step: DOUBLE_MISS_STEP_SECS, reason: "missed twice → likely unknown track" };
-  if (mode === "sparse") return { step: SPARSE_MISS_STEP_SECS, reason: "missed (sparse stretch: mostly unknown tracks)" };
-  if (mode === "dense") return { step: DENSE_MISS_STEP_SECS, reason: "missed (layered mix, no retry)" };
+export function stepAfterMiss(
+  retriedAndMissed: boolean,
+  mode: MixMode,
+): { step: number; reason: string } {
+  if (retriedAndMissed)
+    return { step: DOUBLE_MISS_STEP_SECS, reason: "missed twice → likely unknown track" };
+  if (mode === "sparse")
+    return {
+      step: SPARSE_MISS_STEP_SECS,
+      reason: "missed (sparse stretch: mostly unknown tracks)",
+    };
+  if (mode === "dense")
+    return { step: DENSE_MISS_STEP_SECS, reason: "missed (layered mix, no retry)" };
   return { step: MISS_STEP_SECS, reason: "missed" };
 }

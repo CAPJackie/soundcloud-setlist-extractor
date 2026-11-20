@@ -14,7 +14,7 @@ interface BudgetDoc {
 
 function dayKey(date = new Date()): string {
   return `acr:${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, "0")}${String(
-    date.getUTCDate()
+    date.getUTCDate(),
   ).padStart(2, "0")}`;
 }
 

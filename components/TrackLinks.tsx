@@ -22,7 +22,7 @@ export default function TrackLinks({ artist, title, links }: Props) {
     `block rounded-full transition hover:scale-110 ${direct ? "" : "opacity-35 grayscale hover:opacity-80 hover:grayscale-0"}`;
 
   return (
-    <div className="flex items-center gap-2 shrink-0">
+    <div className="flex shrink-0 items-center gap-2">
       <a
         href={spotify.url}
         target="_blank"

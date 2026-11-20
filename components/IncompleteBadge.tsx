@@ -15,7 +15,7 @@ export default function IncompleteBadge({
         : ` · ${formatClock(resumeFromSecs)}`
       : "";
   return (
-    <span className="rounded-full bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 px-2 py-0.5 font-medium whitespace-nowrap">
+    <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium whitespace-nowrap text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
       Incomplete{progress}
     </span>
   );

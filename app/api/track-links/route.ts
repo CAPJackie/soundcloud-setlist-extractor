@@ -17,10 +17,14 @@ export async function POST(req: NextRequest) {
   const clean = tracks
     .map((t: unknown) => {
       const o = t as { artist?: unknown; title?: unknown };
-      return { artist: String(o?.artist ?? "").slice(0, 200), title: String(o?.title ?? "").slice(0, 200) };
+      return {
+        artist: String(o?.artist ?? "").slice(0, 200),
+        title: String(o?.title ?? "").slice(0, 200),
+      };
     })
     .filter((t: { artist: string; title: string }) => t.artist && t.title);
-  if (clean.length !== tracks.length) return NextResponse.json({ error: "Each track needs artist and title" }, { status: 400 });
+  if (clean.length !== tracks.length)
+    return NextResponse.json({ error: "Each track needs artist and title" }, { status: 400 });
 
   const links = await resolveTrackLinks(clean);
   return NextResponse.json({ links });

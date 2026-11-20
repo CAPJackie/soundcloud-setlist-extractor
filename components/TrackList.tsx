@@ -7,7 +7,7 @@ import {
   createPlaylist,
   openSpotifyAuthPopup,
   searchTrack,
-  storeToken
+  storeToken,
 } from "@/lib/spotify";
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
@@ -38,7 +38,20 @@ interface Props {
 
 type ExportState = "idle" | "connecting" | "exporting" | "done" | "error";
 
-export default function TrackList({ tracks, status, loading, error, total, currentUrl, mixTitle, incomplete, resumeFromSecs, durationSecs, onResume, onCacheReset }: Props) {
+export default function TrackList({
+  tracks,
+  status,
+  loading,
+  error,
+  total,
+  currentUrl,
+  mixTitle,
+  incomplete,
+  resumeFromSecs,
+  durationSecs,
+  onResume,
+  onCacheReset,
+}: Props) {
   const { data: session } = useSession();
   const isAdmin = session?.user?.isAdmin ?? false;
   // Direct Spotify / Apple Music links, looked up once the list is final.
@@ -99,7 +112,9 @@ export default function TrackList({ tracks, status, loading, error, total, curre
     setSpotifyFoundMap({});
     setFoundCount(0);
 
-    const meRes = await fetch("https://api.spotify.com/v1/me", { headers: { Authorization: `Bearer ${token}` } });
+    const meRes = await fetch("https://api.spotify.com/v1/me", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     const me = await meRes.json();
     console.log("[spotify] me:", me.id, "product:", me.product, "country:", me.country);
 
@@ -160,28 +175,33 @@ export default function TrackList({ tracks, status, loading, error, total, curre
   const showExportButton = tracks.length > 0 && !loading;
 
   return (
-    <div className="w-full flex flex-col gap-4">
+    <div className="flex w-full flex-col gap-4">
       {(loading || status) && (
         <div className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
           {loading && (
-            <span className="inline-block w-3.5 h-3.5 rounded-full border-2 border-orange-500 border-t-transparent animate-spin shrink-0" />
+            <span className="inline-block h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />
           )}
           <span className="truncate">{status}</span>
         </div>
       )}
 
       {incomplete && !loading && (
-        <ResumeProgress resumeFromSecs={resumeFromSecs} durationSecs={durationSecs} onResume={onResume} />
+        <ResumeProgress
+          resumeFromSecs={resumeFromSecs}
+          durationSecs={durationSecs}
+          onResume={onResume}
+        />
       )}
 
       {doneWithNothing && !incomplete && (
-        <div className="rounded-xl bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 px-5 py-4 text-sm text-zinc-500 dark:text-zinc-400">
-          No tracks could be identified from this mix. ACRCloud didn't match any of the audio samples.
+        <div className="rounded-xl border border-zinc-200 bg-zinc-100 px-5 py-4 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-400">
+          No tracks could be identified from this mix. ACRCloud didn't match any of the audio
+          samples.
         </div>
       )}
 
       {error && (
-        <div className="rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 px-5 py-4 text-sm text-red-600 dark:text-red-400">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-600 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400">
           {error}
         </div>
       )}
@@ -199,7 +219,7 @@ export default function TrackList({ tracks, status, loading, error, total, curre
                 <button
                   onClick={resetCache}
                   disabled={resetting}
-                  className="text-xs text-zinc-400 hover:text-red-500 dark:hover:text-red-400 font-medium transition disabled:opacity-40"
+                  className="text-xs font-medium text-zinc-400 transition hover:text-red-500 disabled:opacity-40 dark:hover:text-red-400"
                   title="Reset MongoDB cache for this URL (admin)"
                 >
                   {resetting ? "Resetting..." : "Reset cache"}
@@ -207,7 +227,7 @@ export default function TrackList({ tracks, status, loading, error, total, curre
               )}
               <button
                 onClick={copyText}
-                className="text-xs text-orange-500 hover:text-orange-600 font-medium transition"
+                className="text-xs font-medium text-orange-500 transition hover:text-orange-600"
               >
                 Copy all
               </button>
@@ -235,22 +255,22 @@ export default function TrackList({ tracks, status, loading, error, total, curre
               {exportState === "idle" && (
                 <button
                   onClick={handleExport}
-                  className="w-full rounded-xl bg-[#1DB954] hover:bg-[#1aa34a] text-white text-sm font-semibold py-3 transition"
+                  className="w-full rounded-xl bg-[#1DB954] py-3 text-sm font-semibold text-white transition hover:bg-[#1aa34a]"
                 >
                   Export to Spotify
                 </button>
               )}
 
               {exportState === "connecting" && (
-                <div className="flex items-center gap-2 justify-center py-3 text-sm text-zinc-500 dark:text-zinc-400">
-                  <span className="inline-block w-3.5 h-3.5 rounded-full border-2 border-[#1DB954] border-t-transparent animate-spin shrink-0" />
+                <div className="flex items-center justify-center gap-2 py-3 text-sm text-zinc-500 dark:text-zinc-400">
+                  <span className="inline-block h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-[#1DB954] border-t-transparent" />
                   Waiting for Spotify authorization...
                 </div>
               )}
 
               {exportState === "exporting" && (
-                <div className="flex items-center gap-2 justify-center py-3 text-sm text-zinc-500 dark:text-zinc-400">
-                  <span className="inline-block w-3.5 h-3.5 rounded-full border-2 border-[#1DB954] border-t-transparent animate-spin shrink-0" />
+                <div className="flex items-center justify-center gap-2 py-3 text-sm text-zinc-500 dark:text-zinc-400">
+                  <span className="inline-block h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-[#1DB954] border-t-transparent" />
                   Finding tracks... ({exportProgress.current}/{exportProgress.total})
                 </div>
               )}
@@ -260,7 +280,7 @@ export default function TrackList({ tracks, status, loading, error, total, curre
                   <div className="text-center text-sm text-zinc-500 dark:text-zinc-400">
                     {foundCount} of {tracks.length} tracks found on Spotify
                     {tracks.length - foundCount > 0 && (
-                      <span className="text-red-500 dark:text-red-400 ml-1">
+                      <span className="ml-1 text-red-500 dark:text-red-400">
                         ({tracks.length - foundCount} not found — shown in red)
                       </span>
                     )}
@@ -269,7 +289,7 @@ export default function TrackList({ tracks, status, loading, error, total, curre
                     href={playlistUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full rounded-xl bg-[#1DB954] hover:bg-[#1aa34a] text-white text-sm font-semibold py-3 transition text-center block"
+                    className="block w-full rounded-xl bg-[#1DB954] py-3 text-center text-sm font-semibold text-white transition hover:bg-[#1aa34a]"
                   >
                     Open Playlist on Spotify →
                   </a>
@@ -278,12 +298,12 @@ export default function TrackList({ tracks, status, loading, error, total, curre
 
               {exportState === "error" && (
                 <div className="flex flex-col gap-2">
-                  <div className="rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 px-5 py-3 text-sm text-red-600 dark:text-red-400">
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400">
                     {exportError}
                   </div>
                   <button
                     onClick={handleExport}
-                    className="w-full rounded-xl bg-[#1DB954] hover:bg-[#1aa34a] text-white text-sm font-semibold py-3 transition"
+                    className="w-full rounded-xl bg-[#1DB954] py-3 text-sm font-semibold text-white transition hover:bg-[#1aa34a]"
                   >
                     Try again
                   </button>

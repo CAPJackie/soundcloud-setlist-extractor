@@ -8,7 +8,7 @@ import {
   createPlaylist,
   openSpotifyAuthPopup,
   searchTrack,
-  storeToken
+  storeToken,
 } from "@/lib/spotify";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -90,18 +90,22 @@ export default function SetPlayer({ url, tracks, mixTitle }: Props) {
         if (pending !== null) {
           pendingSeekRef.current = null;
           widget.play();
-          setTimeout(() => { if (alive) widget.seekTo(pending); }, 200);
+          setTimeout(() => {
+            if (alive) widget.seekTo(pending);
+          }, 200);
         }
       });
     }
 
     if (window.SC) {
       initWidget();
-      return () => { alive = false; };
+      return () => {
+        alive = false;
+      };
     }
 
     let script = document.querySelector<HTMLScriptElement>(
-      'script[src*="w.soundcloud.com/player/api"]'
+      'script[src*="w.soundcloud.com/player/api"]',
     );
     if (!script) {
       script = document.createElement("script");
@@ -141,7 +145,9 @@ export default function SetPlayer({ url, tracks, mixTitle }: Props) {
     setSpotifyFoundMap({});
     setFoundCount(0);
 
-    const meRes = await fetch("https://api.spotify.com/v1/me", { headers: { Authorization: `Bearer ${token}` } });
+    const meRes = await fetch("https://api.spotify.com/v1/me", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     const me = await meRes.json();
     console.log("[spotify] me:", me.id, "product:", me.product, "country:", me.country);
 
@@ -200,14 +206,14 @@ export default function SetPlayer({ url, tracks, mixTitle }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="sticky top-14 z-40 bg-zinc-50 dark:bg-zinc-950 pt-2 pb-3 shadow-[0_4px_12px_-2px] shadow-zinc-200/80 dark:shadow-zinc-950/80">
+      <div className="sticky top-14 z-40 bg-zinc-50 pt-2 pb-3 shadow-[0_4px_12px_-2px] shadow-zinc-200/80 dark:bg-zinc-950 dark:shadow-zinc-950/80">
         <iframe
           ref={iframeRef}
           src={embedUrl}
           width="100%"
           height="300"
           allow="autoplay"
-          className="rounded-xl border border-zinc-100 dark:border-zinc-800 w-full"
+          className="w-full rounded-xl border border-zinc-100 dark:border-zinc-800"
         />
       </div>
 
@@ -219,14 +225,14 @@ export default function SetPlayer({ url, tracks, mixTitle }: Props) {
           <button
             onClick={resetCache}
             disabled={resetting}
-            className="text-xs text-zinc-400 hover:text-red-500 dark:hover:text-red-400 font-medium transition disabled:opacity-40"
+            className="text-xs font-medium text-zinc-400 transition hover:text-red-500 disabled:opacity-40 dark:hover:text-red-400"
             title="Delete cached tracklist and re-extract"
           >
             {resetting ? "Resetting..." : "Reset cache"}
           </button>
           <button
             onClick={copyText}
-            className="text-xs text-orange-500 hover:text-orange-600 font-medium transition"
+            className="text-xs font-medium text-orange-500 transition hover:text-orange-600"
           >
             Copy all
           </button>
@@ -237,17 +243,19 @@ export default function SetPlayer({ url, tracks, mixTitle }: Props) {
         {tracks.map((track, i) => (
           <div
             key={`${track.title}-${i}`}
-            className="flex items-center gap-4 px-5 py-4 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900"
+            className="flex items-center gap-4 rounded-xl border border-zinc-100 bg-white px-5 py-4 dark:border-zinc-800 dark:bg-zinc-900"
           >
-            <span className={`text-xs font-mono w-6 text-right shrink-0 ${spotifyFoundMap[i] === false ? "text-red-500 dark:text-red-400" : "text-zinc-400 dark:text-zinc-600"}`}>
+            <span
+              className={`w-6 shrink-0 text-right font-mono text-xs ${spotifyFoundMap[i] === false ? "text-red-500 dark:text-red-400" : "text-zinc-400 dark:text-zinc-600"}`}
+            >
               {i + 1}
             </span>
 
-            <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                 {track.title}
               </span>
-              <span className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+              <span className="truncate text-xs text-zinc-500 dark:text-zinc-400">
                 {track.artist}
               </span>
             </div>
@@ -255,7 +263,7 @@ export default function SetPlayer({ url, tracks, mixTitle }: Props) {
             {track.timestamp && (
               <button
                 onClick={() => handleSeek(track.timestamp!)}
-                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white text-xs font-mono font-semibold transition"
+                className="flex shrink-0 items-center gap-1.5 rounded-lg bg-orange-500 px-3 py-1.5 font-mono text-xs font-semibold text-white transition hover:bg-orange-600 active:bg-orange-700"
               >
                 <span>▶</span>
                 <span>{track.timestamp}</span>
@@ -271,22 +279,22 @@ export default function SetPlayer({ url, tracks, mixTitle }: Props) {
         {exportState === "idle" && (
           <button
             onClick={handleExport}
-            className="w-full rounded-xl bg-[#1DB954] hover:bg-[#1aa34a] text-white text-sm font-semibold py-3 transition"
+            className="w-full rounded-xl bg-[#1DB954] py-3 text-sm font-semibold text-white transition hover:bg-[#1aa34a]"
           >
             Export to Spotify
           </button>
         )}
 
         {exportState === "connecting" && (
-          <div className="flex items-center gap-2 justify-center py-3 text-sm text-zinc-500 dark:text-zinc-400">
-            <span className="inline-block w-3.5 h-3.5 rounded-full border-2 border-[#1DB954] border-t-transparent animate-spin shrink-0" />
+          <div className="flex items-center justify-center gap-2 py-3 text-sm text-zinc-500 dark:text-zinc-400">
+            <span className="inline-block h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-[#1DB954] border-t-transparent" />
             Waiting for Spotify authorization...
           </div>
         )}
 
         {exportState === "exporting" && (
-          <div className="flex items-center gap-2 justify-center py-3 text-sm text-zinc-500 dark:text-zinc-400">
-            <span className="inline-block w-3.5 h-3.5 rounded-full border-2 border-[#1DB954] border-t-transparent animate-spin shrink-0" />
+          <div className="flex items-center justify-center gap-2 py-3 text-sm text-zinc-500 dark:text-zinc-400">
+            <span className="inline-block h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-[#1DB954] border-t-transparent" />
             Finding tracks... ({exportProgress.current}/{exportProgress.total})
           </div>
         )}
@@ -296,7 +304,7 @@ export default function SetPlayer({ url, tracks, mixTitle }: Props) {
             <div className="text-center text-sm text-zinc-500 dark:text-zinc-400">
               {foundCount} of {tracks.length} tracks found on Spotify
               {tracks.length - foundCount > 0 && (
-                <span className="text-red-500 dark:text-red-400 ml-1">
+                <span className="ml-1 text-red-500 dark:text-red-400">
                   ({tracks.length - foundCount} not found — shown in red)
                 </span>
               )}
@@ -305,7 +313,7 @@ export default function SetPlayer({ url, tracks, mixTitle }: Props) {
               href={playlistUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full rounded-xl bg-[#1DB954] hover:bg-[#1aa34a] text-white text-sm font-semibold py-3 transition text-center block"
+              className="block w-full rounded-xl bg-[#1DB954] py-3 text-center text-sm font-semibold text-white transition hover:bg-[#1aa34a]"
             >
               Open Playlist on Spotify →
             </a>
@@ -314,12 +322,12 @@ export default function SetPlayer({ url, tracks, mixTitle }: Props) {
 
         {exportState === "error" && (
           <div className="flex flex-col gap-2">
-            <div className="rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 px-5 py-3 text-sm text-red-600 dark:text-red-400">
+            <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400">
               {exportError}
             </div>
             <button
               onClick={handleExport}
-              className="w-full rounded-xl bg-[#1DB954] hover:bg-[#1aa34a] text-white text-sm font-semibold py-3 transition"
+              className="w-full rounded-xl bg-[#1DB954] py-3 text-sm font-semibold text-white transition hover:bg-[#1aa34a]"
             >
               Try again
             </button>

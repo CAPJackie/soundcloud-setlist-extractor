@@ -12,7 +12,12 @@ import { cache } from "react";
 import type { ObjectId } from "mongodb";
 import { getDb } from "./db";
 import { enrichArtistLabels, getArtistLabels, getLabels, metaKey } from "./labels";
-import { extractClientId, fetchRelatedTracks, fetchSoundCloudPageHtml, parseSoundCloudTrack } from "./soundcloud";
+import {
+  extractClientId,
+  fetchRelatedTracks,
+  fetchSoundCloudPageHtml,
+  parseSoundCloudTrack,
+} from "./soundcloud";
 import { artistKeys } from "./corroboration";
 import {
   recommendArtists,
@@ -47,7 +52,10 @@ function toExploreSet(d: SetDoc, labels: Map<string, string>): ExploreSet {
     url: d.url,
     title: d.title,
     username: d.username,
-    tracks: (d.tracks ?? []).map((t) => ({ ...t, label: t.label ?? labels.get(metaKey(t.artist, t.title)) })),
+    tracks: (d.tracks ?? []).map((t) => ({
+      ...t,
+      label: t.label ?? labels.get(metaKey(t.artist, t.title)),
+    })),
   };
 }
 
@@ -57,7 +65,11 @@ export const loadExploreBase = cache(async (email: string) => {
   const col = db.collection<SetDoc>("setlists");
   const projection = { url: 1, title: 1, username: 1, tracks: 1, scTrackId: 1 };
   const [mine, others] = await Promise.all([
-    col.find({ $or: [{ searchedBy: email }, { likedBy: email }] }, { projection }).sort({ cachedAt: -1 }).limit(200).toArray(),
+    col
+      .find({ $or: [{ searchedBy: email }, { likedBy: email }] }, { projection })
+      .sort({ cachedAt: -1 })
+      .limit(200)
+      .toArray(),
     col
       .find({ searchedBy: { $ne: email }, likedBy: { $ne: email } }, { projection })
       .sort({ cachedAt: -1 })
@@ -82,7 +94,8 @@ let clientIdCache: { value: string; at: number } | null = null;
 
 async function soundCloudClientId(html: string | null): Promise<string | null> {
   if (clientIdCache && Date.now() - clientIdCache.at < 6 * 3600 * 1000) return clientIdCache.value;
-  const page = html ?? (await fetchSoundCloudPageHtml("https://soundcloud.com/discover").catch(() => null));
+  const page =
+    html ?? (await fetchSoundCloudPageHtml("https://soundcloud.com/discover").catch(() => null));
   if (!page) return null;
   const id = await extractClientId(page);
   if (id) clientIdCache = { value: id, at: Date.now() };
@@ -102,13 +115,17 @@ export const loadRelatedSets = cache(async (email: string) => {
   const cacheCol = db.collection<RelatedDoc>("sc_related");
   const sources = mySets.slice(0, RELATED_SOURCE_SETS);
   const cached = new Map(
-    (await cacheCol.find({ _id: { $in: sources.map((s) => s.url) } }).toArray()).map((d) => [d._id, d])
+    (await cacheCol.find({ _id: { $in: sources.map((s) => s.url) } }).toArray()).map((d) => [
+      d._id,
+      d,
+    ]),
   );
 
   const perSource = await Promise.all(
     sources.map(async (set) => {
       const hit = cached.get(set.url);
-      if (hit && Date.now() - hit.fetchedAt.getTime() < DAY_MS) return { sourceUrl: set.url, related: hit.related };
+      if (hit && Date.now() - hit.fetchedAt.getTime() < DAY_MS)
+        return { sourceUrl: set.url, related: hit.related };
       try {
         let scId = scIds.get(set.url) ?? null;
         let html: string | null = null;
@@ -116,7 +133,11 @@ export const loadRelatedSets = cache(async (email: string) => {
           html = await fetchSoundCloudPageHtml(set.url);
           scId = parseSoundCloudTrack(html).id;
           // Saved so the page fetch isn't needed next time.
-          if (scId) await db.collection("setlists").updateOne({ url: set.url }, { $set: { scTrackId: scId } }).catch(() => {});
+          if (scId)
+            await db
+              .collection("setlists")
+              .updateOne({ url: set.url }, { $set: { scTrackId: scId } })
+              .catch(() => {});
         }
         const clientId = await soundCloudClientId(html);
         if (!scId || !clientId) return { sourceUrl: set.url, related: hit?.related ?? [] };
@@ -128,13 +149,19 @@ export const loadRelatedSets = cache(async (email: string) => {
           durationSecs: r.durationSecs,
           artworkUrl: r.artworkUrl,
         }));
-        await cacheCol.updateOne({ _id: set.url }, { $set: { related, fetchedAt: new Date() } }, { upsert: true });
+        await cacheCol.updateOne(
+          { _id: set.url },
+          { $set: { related, fetchedAt: new Date() } },
+          { upsert: true },
+        );
         return { sourceUrl: set.url, related };
       } catch (err) {
-        console.warn(`[explore] related sets failed for ${set.url}: ${err instanceof Error ? err.message : err}`);
+        console.warn(
+          `[explore] related sets failed for ${set.url}: ${err instanceof Error ? err.message : err}`,
+        );
         return { sourceUrl: set.url, related: hit?.related ?? [] };
       }
-    })
+    }),
   );
 
   const ranked = rankRelatedSets(perSource, new Set(mySets.map((s) => s.url)));
@@ -145,7 +172,7 @@ export const loadRelatedSets = cache(async (email: string) => {
         .collection<{ _id: ObjectId; url: string; incomplete?: boolean }>("setlists")
         .find({ url: { $in: ranked.map((r) => r.url) } }, { projection: { url: 1, incomplete: 1 } })
         .toArray()
-    ).map((d) => [d.url, { id: d._id.toString(), incomplete: !!d.incomplete }])
+    ).map((d) => [d.url, { id: d._id.toString(), incomplete: !!d.incomplete }]),
   );
   return ranked.map((r) => ({ ...r, inDb: inDb.get(r.url) ?? null }));
 });
@@ -172,10 +199,16 @@ async function fetchLastfmSimilar(artist: string): Promise<{ name: string; match
   });
   const res = await fetch(`https://ws.audioscrobbler.com/2.0/?${params}`);
   if (!res.ok) throw new Error(`lastfm ${res.status}`);
-  const data = (await res.json()) as { similarartists?: { artist?: { name: string; match: string }[] }; error?: number };
+  const data = (await res.json()) as {
+    similarartists?: { artist?: { name: string; match: string }[] };
+    error?: number;
+  };
   if (data.error === 6) return []; // artist not found
   if (data.error) throw new Error(`lastfm error ${data.error}`);
-  return (data.similarartists?.artist ?? []).map((a) => ({ name: a.name, match: Number(a.match) || 0 }));
+  return (data.similarartists?.artist ?? []).map((a) => ({
+    name: a.name,
+    match: Number(a.match) || 0,
+  }));
 }
 
 export const loadLastfmSimilar = cache(async (email: string): Promise<LastfmSimilar[]> => {
@@ -185,26 +218,38 @@ export const loadLastfmSimilar = cache(async (email: string): Promise<LastfmSimi
   if (seeds.length === 0) return [];
   const db = await getDb();
   const col = db.collection<LastfmDoc>("lastfm_similar");
-  const cached = new Map((await col.find({ _id: { $in: seeds.map((s) => s.key) } }).toArray()).map((d) => [d._id, d]));
+  const cached = new Map(
+    (await col.find({ _id: { $in: seeds.map((s) => s.key) } }).toArray()).map((d) => [d._id, d]),
+  );
 
   return Promise.all(
     seeds.map(async (seed: NamedCount) => {
       const hit = cached.get(seed.key);
-      if (hit && Date.now() - hit.fetchedAt.getTime() < 7 * DAY_MS) return { forArtist: seed.name, similar: hit.similar };
+      if (hit && Date.now() - hit.fetchedAt.getTime() < 7 * DAY_MS)
+        return { forArtist: seed.name, similar: hit.similar };
       try {
         const similar = await fetchLastfmSimilar(seed.name);
-        await col.updateOne({ _id: seed.key }, { $set: { forArtist: seed.name, similar, fetchedAt: new Date() } }, { upsert: true });
+        await col.updateOne(
+          { _id: seed.key },
+          { $set: { forArtist: seed.name, similar, fetchedAt: new Date() } },
+          { upsert: true },
+        );
         return { forArtist: seed.name, similar };
       } catch (err) {
-        console.warn(`[explore] last.fm failed for ${seed.name}: ${err instanceof Error ? err.message : err}`);
+        console.warn(
+          `[explore] last.fm failed for ${seed.name}: ${err instanceof Error ? err.message : err}`,
+        );
         return { forArtist: seed.name, similar: hit?.similar ?? [] };
       }
-    })
+    }),
   );
 });
 
 export const loadArtistRecs = cache(async (email: string) => {
-  const [{ taste, otherSets }, lastfm] = await Promise.all([loadExploreBase(email), loadLastfmSimilar(email)]);
+  const [{ taste, otherSets }, lastfm] = await Promise.all([
+    loadExploreBase(email),
+    loadLastfmSimilar(email),
+  ]);
   return recommendArtists(taste.artists, otherSets, lastfm);
 });
 
@@ -233,14 +278,16 @@ export const loadLabelRecs = cache(async (email: string) => {
   ]);
   await enrichArtistLabels(
     seeds.map((s) => s.artist),
-    LABEL_INLINE_BUDGET_MS
+    LABEL_INLINE_BUDGET_MS,
   ).catch(() => 0);
   const byArtist = await getArtistLabels(seeds.map((s) => s.artist));
   const keys = new Set([...taste.artists.map((a) => a.key), ...recs.map((r) => r.key)]);
-  const otherTracks = otherSets.flatMap((s) => s.tracks).filter((t) => artistKeys(t.artist).some((k) => keys.has(k)));
+  const otherTracks = otherSets
+    .flatMap((s) => s.tracks)
+    .filter((t) => artistKeys(t.artist).some((k) => keys.has(k)));
   return recommendLabels(
     taste.labels,
     seeds.map((s) => ({ ...s, labels: byArtist.get(s.artist) ?? [] })),
-    otherTracks
+    otherTracks,
   );
 });

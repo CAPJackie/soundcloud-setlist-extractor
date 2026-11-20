@@ -48,7 +48,7 @@ export async function getCachedSetlist(url: string): Promise<CachedSetlist | nul
 
 export async function saveSetlist(
   data: Omit<CachedSetlist, "cachedAt" | "searchedBy">,
-  userEmail?: string
+  userEmail?: string,
 ): Promise<void> {
   const col = await collection();
   await col.updateOne(
@@ -57,16 +57,18 @@ export async function saveSetlist(
       $set: { ...data, cachedAt: new Date() },
       ...(userEmail ? { $addToSet: { searchedBy: userEmail } } : {}),
     },
-    { upsert: true }
+    { upsert: true },
   );
 }
 
 export async function getSetlistById(
-  id: string
+  id: string,
 ): Promise<(CachedSetlist & { _id: ObjectId }) | null> {
   try {
     const col = await collection();
-    return col.findOne({ _id: new ObjectId(id) }) as Promise<(CachedSetlist & { _id: ObjectId }) | null>;
+    return col.findOne({ _id: new ObjectId(id) }) as Promise<
+      (CachedSetlist & { _id: ObjectId }) | null
+    >;
   } catch {
     return null;
   }

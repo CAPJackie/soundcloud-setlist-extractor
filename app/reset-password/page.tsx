@@ -76,7 +76,7 @@ function ResetPasswordForm() {
   if (done) {
     return (
       <div className="flex flex-col gap-2">
-        <p className="text-sm text-zinc-700 dark:text-zinc-300 font-medium">
+        <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
           Password updated successfully.
         </p>
         <p className="text-xs text-zinc-400 dark:text-zinc-500">Redirecting to sign in…</p>
@@ -134,7 +134,7 @@ function ResetPasswordForm() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="mt-1 rounded-lg bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 text-sm font-semibold text-white transition"
+          className="mt-1 rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isSubmitting ? "Saving…" : "Set new password"}
         </button>
@@ -145,9 +145,9 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center px-4">
+    <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 dark:bg-zinc-950">
       <div className="w-full max-w-sm">
-        <div className="flex flex-col gap-2 mb-8">
+        <div className="mb-8 flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <span className="text-2xl">&#127925;</span>
             <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
@@ -157,13 +157,13 @@ export default function ResetPasswordPage() {
           <p className="text-sm text-zinc-500 dark:text-zinc-400">Set a new password</p>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
           <Suspense fallback={<p className="text-sm text-zinc-400">Loading…</p>}>
             <ResetPasswordForm />
           </Suspense>
 
           <div className="mt-4 text-center text-sm text-zinc-500 dark:text-zinc-400">
-            <Link href="/login" className="text-orange-500 hover:text-orange-400 font-medium">
+            <Link href="/login" className="font-medium text-orange-500 hover:text-orange-400">
               Back to sign in
             </Link>
           </div>

@@ -28,7 +28,8 @@ interface TrackMeta {
 const NOT_FOUND_RETRY_MS = 30 * 24 * 3600 * 1000;
 const UA = "SetlistExtractor/1.0 (+https://github.com/)";
 
-export const metaKey = (artist: string, title: string) => `${normalizeTitle(artist)}|${normalizeTitle(title)}`;
+export const metaKey = (artist: string, title: string) =>
+  `${normalizeTitle(artist)}|${normalizeTitle(title)}`;
 
 async function collection() {
   const db = await getDb();
@@ -36,7 +37,9 @@ async function collection() {
 }
 
 /** Known labels for these tracks (track.label first, then the cache). Key = metaKey. */
-export async function getLabels(tracks: { artist: string; title: string; label?: string }[]): Promise<Map<string, string>> {
+export async function getLabels(
+  tracks: { artist: string; title: string; label?: string }[],
+): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   const missing: string[] = [];
   for (const t of tracks) {
@@ -46,7 +49,9 @@ export async function getLabels(tracks: { artist: string; title: string; label?:
   }
   if (missing.length > 0) {
     const col = await collection();
-    for (const doc of await col.find({ _id: { $in: [...new Set(missing)] }, label: { $ne: null } }).toArray()) {
+    for (const doc of await col
+      .find({ _id: { $in: [...new Set(missing)] }, label: { $ne: null } })
+      .toArray()) {
       if (doc.label) out.set(doc._id, doc.label);
     }
   }
@@ -85,10 +90,15 @@ async function discogsGet<T>(path: string, params: URLSearchParams): Promise<T> 
 async function fromDiscogs(artist: string, title: string): Promise<string | null> {
   if (!discogsEnabled()) return null;
   const params = new URLSearchParams({ artist, track: title, type: "release", per_page: "5" });
-  const data = await discogsGet<{ results?: { title?: string; label?: string[] }[] }>("/database/search", params);
+  const data = await discogsGet<{ results?: { title?: string; label?: string[] }[] }>(
+    "/database/search",
+    params,
+  );
   // Release titles are "Artist - Release"; check the artist to avoid unrelated hits.
   const ours = normalizeTitle(artist);
-  const hit = (data.results ?? []).find((r) => r.label?.length && normalizeTitle(r.title ?? "").includes(ours));
+  const hit = (data.results ?? []).find(
+    (r) => r.label?.length && normalizeTitle(r.title ?? "").includes(ours),
+  );
   return hit?.label?.[0]?.replace(/\s*\(\d+\)$/, "") ?? null; // Discogs disambiguates as "Label (2)"
 }
 
@@ -107,17 +117,30 @@ async function fromMusicBrainz(artist: string, title: string): Promise<string | 
   const res = await mbGet(`https://musicbrainz.org/ws/2/recording?query=${q}&limit=5&fmt=json`);
   if (!res.ok) throw new Error(`musicbrainz ${res.status}`);
   const data = (await res.json()) as {
-    recordings?: { title: string; "artist-credit"?: { name: string }[]; releases?: { id: string }[] }[];
+    recordings?: {
+      title: string;
+      "artist-credit"?: { name: string }[];
+      releases?: { id: string }[];
+    }[];
   };
   const rec = (data.recordings ?? []).find(
-    (r) => r.releases?.length && isSameTrack({ artist, title }, { artist: (r["artist-credit"] ?? []).map((c) => c.name).join(", "), title: r.title })
+    (r) =>
+      r.releases?.length &&
+      isSameTrack(
+        { artist, title },
+        { artist: (r["artist-credit"] ?? []).map((c) => c.name).join(", "), title: r.title },
+      ),
   );
   if (!rec?.releases?.[0]) return null;
   await sleep(1100); // MusicBrainz: max 1 request/second
-  const rel = await mbGet(`https://musicbrainz.org/ws/2/release/${rec.releases[0].id}?inc=labels&fmt=json`);
+  const rel = await mbGet(
+    `https://musicbrainz.org/ws/2/release/${rec.releases[0].id}?inc=labels&fmt=json`,
+  );
   if (!rel.ok) throw new Error(`musicbrainz ${rel.status}`);
   const r = (await rel.json()) as { "label-info"?: { label?: { name?: string } }[] };
-  const name = r["label-info"]?.map((l) => l.label?.name).find((n) => n && !/^\[no label\]$/i.test(n));
+  const name = r["label-info"]
+    ?.map((l) => l.label?.name)
+    .find((n) => n && !/^\[no label\]$/i.test(n));
   return name ?? null;
 }
 
@@ -127,7 +150,7 @@ async function fromMusicBrainz(artist: string, title: string): Promise<string | 
  */
 export async function enrichLabels(
   tracks: { artist: string; title: string; label?: string }[],
-  budgetMs: number
+  budgetMs: number,
 ): Promise<void> {
   const started = Date.now();
   const col = await collection();
@@ -139,7 +162,11 @@ export async function enrichLabels(
 
   for (const [key, t] of unique) {
     if (t.label && known.get(key)?.label !== t.label) {
-      await col.updateOne({ _id: key }, { $set: { label: t.label, source: "acr", checkedAt: new Date() } }, { upsert: true });
+      await col.updateOne(
+        { _id: key },
+        { $set: { label: t.label, source: "acr", checkedAt: new Date() } },
+        { upsert: true },
+      );
     }
   }
 
@@ -166,13 +193,19 @@ export async function enrichLabels(
     } catch (err) {
       // Still rate limited after waiting, or repeated errors (outage): stop now, the next
       // call continues where this one left off. A single odd error only skips the track.
-      console.warn(`[labels] lookup failed for ${t.artist} - ${t.title}: ${err instanceof Error ? err.message : err}`);
+      console.warn(
+        `[labels] lookup failed for ${t.artist} - ${t.title}: ${err instanceof Error ? err.message : err}`,
+      );
       if (err instanceof RateLimited || ++failures >= 3) break;
       continue;
     }
     looked++;
     if (label) found++;
-    await col.updateOne({ _id: key }, { $set: { label, source, checkedAt: new Date() } }, { upsert: true });
+    await col.updateOne(
+      { _id: key },
+      { $set: { label, source, checkedAt: new Date() } },
+      { upsert: true },
+    );
   }
   if (looked > 0) console.log(`[labels] looked up ${looked} tracks, found ${found} labels`);
 }
@@ -211,7 +244,10 @@ async function artistCollection() {
  */
 async function fetchArtistLabels(artist: string): Promise<ArtistLabel[]> {
   const params = new URLSearchParams({ artist, type: "release", per_page: "100" });
-  const data = await discogsGet<{ results?: { title?: string; label?: string[] }[] }>("/database/search", params);
+  const data = await discogsGet<{ results?: { title?: string; label?: string[] }[] }>(
+    "/database/search",
+    params,
+  );
   const ours = artistKey(artist);
   const perLabel = new Map<string, { name: string; titles: Set<string> }>();
   for (const r of data.results ?? []) {
@@ -235,7 +271,9 @@ async function fetchArtistLabels(artist: string): Promise<ArtistLabel[]> {
 export async function getArtistLabels(artists: string[]): Promise<Map<string, ArtistLabel[]>> {
   const col = await artistCollection();
   const keys = artists.map(artistKey);
-  const docs = new Map((await col.find({ _id: { $in: keys.filter(Boolean) } }).toArray()).map((d) => [d._id, d]));
+  const docs = new Map(
+    (await col.find({ _id: { $in: keys.filter(Boolean) } }).toArray()).map((d) => [d._id, d]),
+  );
   const out = new Map<string, ArtistLabel[]>();
   artists.forEach((a, i) => {
     const d = docs.get(keys[i]);
@@ -257,21 +295,30 @@ export async function enrichArtistLabels(artists: string[], budgetMs: number): P
     const k = artistKey(a);
     if (k && !unique.has(k)) unique.set(k, a);
   }
-  const known = new Map((await col.find({ _id: { $in: [...unique.keys()] } }).toArray()).map((d) => [d._id, d]));
+  const known = new Map(
+    (await col.find({ _id: { $in: [...unique.keys()] } }).toArray()).map((d) => [d._id, d]),
+  );
   let looked = 0;
   let failures = 0;
   for (const [key, artist] of unique) {
     if (Date.now() - started > budgetMs) break;
     const doc = known.get(key);
     const age = doc ? Date.now() - doc.checkedAt.getTime() : Infinity;
-    if (doc && age < (doc.labels.length > 0 ? ARTIST_REFRESH_MS : ARTIST_NOT_FOUND_RETRY_MS)) continue;
+    if (doc && age < (doc.labels.length > 0 ? ARTIST_REFRESH_MS : ARTIST_NOT_FOUND_RETRY_MS))
+      continue;
     try {
       const labels = await fetchArtistLabels(artist);
-      await col.updateOne({ _id: key }, { $set: { artist, labels, checkedAt: new Date() } }, { upsert: true });
+      await col.updateOne(
+        { _id: key },
+        { $set: { artist, labels, checkedAt: new Date() } },
+        { upsert: true },
+      );
       looked++;
       failures = 0;
     } catch (err) {
-      console.warn(`[labels] artist lookup failed for ${artist}: ${err instanceof Error ? err.message : err}`);
+      console.warn(
+        `[labels] artist lookup failed for ${artist}: ${err instanceof Error ? err.message : err}`,
+      );
       if (err instanceof RateLimited || ++failures >= 3) break;
     }
   }

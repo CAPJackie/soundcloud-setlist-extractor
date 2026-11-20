@@ -7,7 +7,7 @@ import { signIn, useSession } from "next-auth/react";
 
 function GoogleIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
       <path
         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
         fill="#4285F4"
@@ -77,7 +77,7 @@ export default function LoginPage() {
       zodResolver(modeRef.current === "register" ? registerSchema : signInSchema)(
         values,
         ctx,
-        options
+        options,
       ),
     defaultValues: { email: "", password: "" },
   });
@@ -118,9 +118,9 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center px-4">
+    <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 dark:bg-zinc-950">
       <div className="w-full max-w-sm">
-        <div className="flex flex-col gap-2 mb-8">
+        <div className="mb-8 flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <span className="text-2xl">&#127925;</span>
             <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
@@ -132,20 +132,20 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
           <button
             type="button"
             onClick={() => signIn("google", { callbackUrl: "/" })}
-            className="w-full flex items-center justify-center gap-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-200 transition"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
           >
             <GoogleIcon />
             Continue with Google
           </button>
 
           <div className="my-4 flex items-center gap-3">
-            <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-700" />
+            <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
             <span className="text-xs text-zinc-400">or</span>
-            <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-700" />
+            <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
           </div>
 
           <Form {...form}>
@@ -197,11 +197,15 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="mt-1 rounded-lg bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 text-sm font-semibold text-white transition"
+                className="mt-1 rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSubmitting
-                  ? mode === "signin" ? "Signing in…" : "Creating account…"
-                  : mode === "signin" ? "Sign in" : "Create account"}
+                  ? mode === "signin"
+                    ? "Signing in…"
+                    : "Creating account…"
+                  : mode === "signin"
+                    ? "Sign in"
+                    : "Create account"}
               </button>
             </form>
           </Form>
@@ -213,12 +217,15 @@ export default function LoginPage() {
                   Need an account?{" "}
                   <button
                     onClick={() => switchMode("register")}
-                    className="text-orange-500 hover:text-orange-400 font-medium"
+                    className="font-medium text-orange-500 hover:text-orange-400"
                   >
                     Create one
                   </button>
                 </span>
-                <Link href="/forgot-password" className="text-orange-500 hover:text-orange-400 font-medium">
+                <Link
+                  href="/forgot-password"
+                  className="font-medium text-orange-500 hover:text-orange-400"
+                >
                   Forgot password?
                 </Link>
               </>
@@ -227,7 +234,7 @@ export default function LoginPage() {
                 Already have an account?{" "}
                 <button
                   onClick={() => switchMode("signin")}
-                  className="text-orange-500 hover:text-orange-400 font-medium"
+                  className="font-medium text-orange-500 hover:text-orange-400"
                 >
                   Sign in
                 </button>

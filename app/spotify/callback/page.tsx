@@ -31,7 +31,9 @@ function CallbackHandler() {
       relayKey = decoded.k;
     } catch {}
 
-    log(`code=${code ? "present" : "null"} verifier=${verifier ? "present" : "null"} relayKey=${relayKey ? "present" : "null"}`);
+    log(
+      `code=${code ? "present" : "null"} verifier=${verifier ? "present" : "null"} relayKey=${relayKey ? "present" : "null"}`,
+    );
 
     const relay = async (result: { token?: string; error?: string }) => {
       if (!relayKey) {
@@ -74,16 +76,16 @@ function CallbackHandler() {
   }, [params]);
 
   return (
-    <main className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
-      <div className="flex flex-col items-center gap-4 text-center max-w-lg w-full">
-        <div className="w-5 h-5 rounded-full border-2 border-green-500 border-t-transparent animate-spin" />
+    <main className="flex min-h-screen items-center justify-center bg-zinc-950 p-6">
+      <div className="flex w-full max-w-lg flex-col items-center gap-4 text-center">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-green-500 border-t-transparent" />
         <p className="text-sm text-zinc-200">{message}</p>
-        <pre className="text-[10px] text-left text-zinc-400 bg-zinc-900 rounded p-3 w-full overflow-auto whitespace-pre-wrap">
-{debug.join("\n")}
+        <pre className="w-full overflow-auto rounded bg-zinc-900 p-3 text-left text-[10px] whitespace-pre-wrap text-zinc-400">
+          {debug.join("\n")}
         </pre>
         <button
           onClick={() => window.close()}
-          className="text-xs text-zinc-400 hover:text-white border border-zinc-700 rounded px-3 py-1"
+          className="rounded border border-zinc-700 px-3 py-1 text-xs text-zinc-400 hover:text-white"
         >
           Close window
         </button>

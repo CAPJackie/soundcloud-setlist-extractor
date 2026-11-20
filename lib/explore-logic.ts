@@ -39,12 +39,17 @@ export interface NamedCount {
 }
 
 const trusted = (tracks: ExploreTrack[]) => tracks.filter((t) => !t.lowConfidence);
-export const trackKey = (t: { artist: string; title: string }) => `${normalizeTitle(t.artist)}|${normalizeTitle(t.title)}`;
-export const labelKey = (label: string) => normalizeTitle(label.replace(/\b(records|recordings|music|ltd|limited|inc)\b/gi, ""));
+export const trackKey = (t: { artist: string; title: string }) =>
+  `${normalizeTitle(t.artist)}|${normalizeTitle(t.title)}`;
+export const labelKey = (label: string) =>
+  normalizeTitle(label.replace(/\b(records|recordings|music|ltd|limited|inc)\b/gi, ""));
 
 /** Most common spelling wins as display name. */
 class Tally {
-  private items = new Map<string, { names: Map<string, number>; sets: Set<string>; tracks: number }>();
+  private items = new Map<
+    string,
+    { names: Map<string, number>; sets: Set<string>; tracks: number }
+  >();
   add(key: string, name: string, setId: string) {
     const it = this.items.get(key) ?? { names: new Map(), sets: new Set(), tracks: 0 };
     it.names.set(name, (it.names.get(name) ?? 0) + 1);
@@ -66,7 +71,9 @@ class Tally {
 
 /** Splits "A, B" into its artists, keeping the original spelling for display. */
 function splitArtists(artist: string): { key: string; name: string }[] {
-  const names = artist.split(/\s*(?:,|&|\+|\/|;|\bfeat\.?|\bft\.?|\bfeaturing\b|\bvs\.?|\bx\b)\s*/i).filter(Boolean);
+  const names = artist
+    .split(/\s*(?:,|&|\+|\/|;|\bfeat\.?|\bft\.?|\bfeaturing\b|\bvs\.?|\bx\b)\s*/i)
+    .filter(Boolean);
   const out: { key: string; name: string }[] = [];
   for (const n of names) {
     const [key] = artistKeys(n);
@@ -75,7 +82,10 @@ function splitArtists(artist: string): { key: string; name: string }[] {
   return out;
 }
 
-export function tasteProfile(mySets: ExploreSet[]): { artists: NamedCount[]; labels: NamedCount[] } {
+export function tasteProfile(mySets: ExploreSet[]): {
+  artists: NamedCount[];
+  labels: NamedCount[];
+} {
   const artists = new Tally();
   const labels = new Tally();
   for (const set of mySets) {
@@ -115,14 +125,23 @@ export function recommendArtists(
   taste: NamedCount[],
   otherSets: ExploreSet[],
   lastfm: LastfmSimilar[],
-  limit = 24
+  limit = 24,
 ): ArtistRec[] {
   const mine = new Map(taste.map((a) => [a.key, a]));
   const maxSets = Math.max(1, ...taste.map((a) => a.sets));
   // One shared artist in an eclectic set (e.g. a techno act on a house/jazz set) is
   // noise: with an established taste, a set must share at least 2 artists to count.
   const minShared = taste.length >= 5 ? 2 : 1;
-  const recs = new Map<string, { name: string; cooc: number; lfm: number; because: Map<string, number>; sources: Set<"sets" | "lastfm"> }>();
+  const recs = new Map<
+    string,
+    {
+      name: string;
+      cooc: number;
+      lfm: number;
+      because: Map<string, number>;
+      sources: Set<"sets" | "lastfm">;
+    }
+  >();
   const get = (key: string, name: string) => {
     const r = recs.get(key) ?? { name, cooc: 0, lfm: 0, because: new Map(), sources: new Set() };
     recs.set(key, r);
@@ -131,7 +150,8 @@ export function recommendArtists(
 
   for (const set of otherSets) {
     const artists = new Map<string, string>();
-    for (const t of trusted(set.tracks)) for (const a of splitArtists(t.artist)) artists.set(a.key, a.name);
+    for (const t of trusted(set.tracks))
+      for (const a of splitArtists(t.artist)) artists.set(a.key, a.name);
     const shared = [...artists.keys()].filter((k) => mine.has(k));
     if (shared.length < minShared) continue;
     for (const [key, name] of artists) {
@@ -139,7 +159,8 @@ export function recommendArtists(
       const r = get(key, name);
       r.cooc += shared.length;
       r.sources.add("sets");
-      for (const s of shared) r.because.set(mine.get(s)!.name, (r.because.get(mine.get(s)!.name) ?? 0) + 1);
+      for (const s of shared)
+        r.because.set(mine.get(s)!.name, (r.because.get(mine.get(s)!.name) ?? 0) + 1);
     }
   }
 
@@ -164,7 +185,10 @@ export function recommendArtists(
       name: r.name,
       // Found by both signals → clearly ahead of single-signal artists.
       score: r.cooc / maxCooc + r.lfm / maxLfm + (r.sources.size > 1 ? 0.5 : 0),
-      because: [...r.because.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([n]) => n),
+      because: [...r.because.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 2)
+        .map(([n]) => n),
       sources: [...r.sources],
     }))
     .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
@@ -179,7 +203,12 @@ export interface DigTrack extends ExploreTrack {
 }
 
 /** Tracks by the user's artists that other sets play and the user's sets don't have. */
-export function tracksToDig(taste: NamedCount[], mySets: ExploreSet[], otherSets: ExploreSet[], limit = 30): DigTrack[] {
+export function tracksToDig(
+  taste: NamedCount[],
+  mySets: ExploreSet[],
+  otherSets: ExploreSet[],
+  limit = 30,
+): DigTrack[] {
   const mine = new Map(taste.map((a) => [a.key, a]));
   const known = new Set(mySets.flatMap((s) => s.tracks.map(trackKey)));
   const seen = new Set<string>();
@@ -188,7 +217,9 @@ export function tracksToDig(taste: NamedCount[], mySets: ExploreSet[], otherSets
     for (const t of trusted(set.tracks)) {
       const key = trackKey(t);
       if (known.has(key) || seen.has(key)) continue;
-      const via = splitArtists(t.artist).map((a) => mine.get(a.key)).find(Boolean);
+      const via = splitArtists(t.artist)
+        .map((a) => mine.get(a.key))
+        .find(Boolean);
       if (!via) continue;
       seen.add(key);
       out.push({ ...t, setId: set.id, setTitle: set.title, viaArtist: via.name, weight: via.sets });
@@ -210,12 +241,18 @@ export interface SimilarDbSet {
 }
 
 /** Sets already in the database (tracklist ready, free) that share the most artists with the user's. */
-export function similarDbSets(taste: NamedCount[], otherSets: ExploreSet[], limit = 6): SimilarDbSet[] {
+export function similarDbSets(
+  taste: NamedCount[],
+  otherSets: ExploreSet[],
+  limit = 6,
+): SimilarDbSet[] {
   const mine = new Map(taste.map((a) => [a.key, a.name]));
   return otherSets
     .map((set) => {
       const shared = new Map<string, string>();
-      for (const t of trusted(set.tracks)) for (const a of splitArtists(t.artist)) if (mine.has(a.key)) shared.set(a.key, mine.get(a.key)!);
+      for (const t of trusted(set.tracks))
+        for (const a of splitArtists(t.artist))
+          if (mine.has(a.key)) shared.set(a.key, mine.get(a.key)!);
       return { set, sharedArtists: [...shared.values()] };
     })
     .filter((s) => s.sharedArtists.length >= 2)
@@ -248,7 +285,7 @@ export const MIN_SET_SECS = 30 * 60;
 export function rankRelatedSets(
   perSource: { sourceUrl: string; related: RelatedSet[] }[],
   excludeUrls: Set<string>,
-  limit = 12
+  limit = 12,
 ): RankedRelatedSet[] {
   const byId = new Map<number, RankedRelatedSet>();
   for (const { related } of perSource) {
@@ -260,7 +297,9 @@ export function rankRelatedSets(
       byId.set(r.scId, cur);
     });
   }
-  return [...byId.values()].sort((a, b) => b.relatedTo - a.relatedTo || b.score - a.score).slice(0, limit);
+  return [...byId.values()]
+    .sort((a, b) => b.relatedTo - a.relatedTo || b.score - a.score)
+    .slice(0, limit);
 }
 
 export interface LabelRec {
@@ -293,14 +332,29 @@ export function recommendLabels(
   myLabels: NamedCount[],
   artistLabels: { artist: string; mine: boolean; labels: { name: string; releases: number }[] }[],
   otherTracks: ExploreTrack[],
-  limit = 12
+  limit = 12,
 ): LabelRec[] {
   const known = new Map(myLabels.map((l) => [l.key, l.sets]));
-  const recs = new Map<string, { names: Map<string, number>; yours: Set<string>; rec: Set<string>; releases: number; tracks: number }>();
+  const recs = new Map<
+    string,
+    {
+      names: Map<string, number>;
+      yours: Set<string>;
+      rec: Set<string>;
+      releases: number;
+      tracks: number;
+    }
+  >();
   const get = (name: string) => {
     const key = labelKey(name);
     if (!key || (known.get(key) ?? 0) >= KNOWN_LABEL_SETS) return null;
-    const r = recs.get(key) ?? { names: new Map(), yours: new Set(), rec: new Set(), releases: 0, tracks: 0 };
+    const r = recs.get(key) ?? {
+      names: new Map(),
+      yours: new Set(),
+      rec: new Set(),
+      releases: 0,
+      tracks: 0,
+    };
     r.names.set(name, (r.names.get(name) ?? 0) + 1);
     recs.set(key, r);
     return r;

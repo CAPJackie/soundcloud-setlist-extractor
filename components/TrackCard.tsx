@@ -12,35 +12,46 @@ interface Props {
   links?: Links;
 }
 
-export default function TrackCard({ index, artist, title, timestamp, fresh, spotifyFound, lowConfidence, links }: Props) {
-  const columns = ["2rem", timestamp && "3.5rem", "1fr", lowConfidence && "auto", "auto"].filter(Boolean).join("_");
+export default function TrackCard({
+  index,
+  artist,
+  title,
+  timestamp,
+  fresh,
+  spotifyFound,
+  lowConfidence,
+  links,
+}: Props) {
+  const columns = ["2rem", timestamp && "3.5rem", "1fr", lowConfidence && "auto", "auto"]
+    .filter(Boolean)
+    .join("_");
   return (
     <div
       style={{ gridTemplateColumns: columns.replace(/_/g, " ") }}
-      className={`grid items-center gap-x-4 px-5 py-4 rounded-xl border transition-all duration-300 ${
+      className={`grid items-center gap-x-4 rounded-xl border px-5 py-4 transition-all duration-300 ${
         fresh
-          ? "border-orange-400/60 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-500/40"
-          : "border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900"
+          ? "border-orange-400/60 bg-orange-50 dark:border-orange-500/40 dark:bg-orange-950/20"
+          : "border-zinc-100 bg-white dark:border-zinc-800 dark:bg-zinc-900"
       }`}
     >
-      <span className={`text-right text-xs font-mono ${spotifyFound === false ? "text-red-500 dark:text-red-400" : "text-zinc-400 dark:text-zinc-600"}`}>
+      <span
+        className={`text-right font-mono text-xs ${spotifyFound === false ? "text-red-500 dark:text-red-400" : "text-zinc-400 dark:text-zinc-600"}`}
+      >
         {index}
       </span>
       {timestamp && (
-        <span className="text-xs font-mono text-orange-500 dark:text-orange-400">
-          {timestamp}
-        </span>
+        <span className="font-mono text-xs text-orange-500 dark:text-orange-400">{timestamp}</span>
       )}
-      <div className="flex flex-col min-w-0">
-        <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+      <div className="flex min-w-0 flex-col">
+        <span className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           {title}
         </span>
-        <span className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{artist}</span>
+        <span className="truncate text-xs text-zinc-500 dark:text-zinc-400">{artist}</span>
       </div>
       {lowConfidence && (
         <span
           title="Recognized only once with a low score. This may be a false match."
-          className="justify-self-end shrink-0 rounded-md bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-[11px] font-medium text-zinc-500 dark:text-zinc-400 whitespace-nowrap"
+          className="shrink-0 justify-self-end rounded-md bg-zinc-100 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
         >
           low confidence
         </span>

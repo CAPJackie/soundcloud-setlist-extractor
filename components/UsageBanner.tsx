@@ -52,7 +52,7 @@ export default function UsageBanner({ refreshKey = 0 }: { refreshKey?: number })
 
   if (quota.plan === "pro") {
     return (
-      <div className="flex items-center justify-between gap-3 rounded-xl bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-500/20 px-4 py-2.5 text-sm">
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-2.5 text-sm dark:border-orange-500/20 dark:bg-orange-500/10">
         <span className="font-medium text-orange-600 dark:text-orange-400">Pro plan</span>
         <span className="text-zinc-500 dark:text-zinc-400">
           {quota.used}/{quota.limit} extractions this month
@@ -63,14 +63,18 @@ export default function UsageBanner({ refreshKey = 0 }: { refreshKey?: number })
 
   const low = quota.remaining <= 1;
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 px-4 py-2.5 text-sm">
-      <span className={low ? "font-medium text-red-500 dark:text-red-400" : "text-zinc-500 dark:text-zinc-400"}>
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-100 px-4 py-2.5 text-sm dark:border-zinc-700 dark:bg-zinc-800/50">
+      <span
+        className={
+          low ? "font-medium text-red-500 dark:text-red-400" : "text-zinc-500 dark:text-zinc-400"
+        }
+      >
         {quota.remaining} of {quota.limit} free extractions left this month
       </span>
       <button
         onClick={upgrade}
         disabled={upgrading}
-        className="rounded-lg bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold px-3 py-1.5 text-xs transition shrink-0"
+        className="shrink-0 rounded-lg bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-orange-600 disabled:opacity-50"
       >
         {upgrading ? "Starting..." : "Upgrade to Pro"}
       </button>

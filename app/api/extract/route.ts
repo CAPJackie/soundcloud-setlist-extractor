@@ -11,9 +11,32 @@ import { parseCommentIds } from "@/lib/comment-ids";
 import { sameArtistGroup } from "@/lib/corroboration";
 import { enrichLabels } from "@/lib/labels";
 import { parseTracklist } from "@/lib/tracklist-parser";
-import { fetchM3u8Segments, findSegmentIndexNearOffset, downloadProbeBytes, INITIAL_OFFSET_SECS, SHIFT_RETRY_SECS } from "@/lib/hls-chunks";
-import { identifyAudio, AcrRateLimitError, ACR_MAX_CALLS_PER_SESSION, type AcrMatch } from "@/lib/acrcloud";
-import { stepAfterMatch, stepAfterMiss, mixMode, shouldRetry, retriesWorthIt, normalizeTitle, MISS_STEP_SECS, LOW_CONFIDENCE_SCORE, MODE_WINDOW, type MixMode, type TrackedMatch } from "@/lib/sampling-plan";
+import {
+  fetchM3u8Segments,
+  findSegmentIndexNearOffset,
+  downloadProbeBytes,
+  INITIAL_OFFSET_SECS,
+  SHIFT_RETRY_SECS,
+} from "@/lib/hls-chunks";
+import {
+  identifyAudio,
+  AcrRateLimitError,
+  ACR_MAX_CALLS_PER_SESSION,
+  type AcrMatch,
+} from "@/lib/acrcloud";
+import {
+  stepAfterMatch,
+  stepAfterMiss,
+  mixMode,
+  shouldRetry,
+  retriesWorthIt,
+  normalizeTitle,
+  MISS_STEP_SECS,
+  LOW_CONFIDENCE_SCORE,
+  MODE_WINDOW,
+  type MixMode,
+  type TrackedMatch,
+} from "@/lib/sampling-plan";
 import { identifyWithAudd, AUDD_MAX_CALLS_PER_SESSION } from "@/lib/audd";
 import { getCachedSetlist, saveSetlist, CachedTrack } from "@/lib/setlist-cache";
 import { sortTracksByTime } from "@/lib/track-order";
@@ -32,7 +55,10 @@ type SseEvent =
   | { type: "status"; message: string }
   | { type: "warning"; message: string }
   | { type: "resolved"; url: string }
-  | { type: "track"; data: { artist: string; title: string; timestamp?: string; lowConfidence?: boolean } }
+  | {
+      type: "track";
+      data: { artist: string; title: string; timestamp?: string; lowConfidence?: boolean };
+    }
   | { type: "confirm"; index: number }
   | { type: "error"; message: string }
   | {
@@ -55,18 +81,21 @@ export async function GET(req: NextRequest) {
 
   // Extraction is a metered, authenticated action.
   if (!userEmail) {
-    return new Response(
-      encode({ type: "error", message: "Please sign in to extract setlists." }),
-      { status: 401, headers: sseHeaders() }
-    );
+    return new Response(encode({ type: "error", message: "Please sign in to extract setlists." }), {
+      status: 401,
+      headers: sseHeaders(),
+    });
   }
 
   // Anti-abuse burst limiter (distinct from the monthly billing quota below).
   const withinRate = await checkAndRecordRateLimit(userEmail);
   if (!withinRate) {
     return new Response(
-      encode({ type: "error", message: "You're going too fast — please wait a moment and try again." }),
-      { status: 429, headers: sseHeaders() }
+      encode({
+        type: "error",
+        message: "You're going too fast — please wait a moment and try again.",
+      }),
+      { status: 429, headers: sseHeaders() },
     );
   }
 
@@ -77,10 +106,9 @@ export async function GET(req: NextRequest) {
   const isDirectLink = url.startsWith("https://soundcloud.com/");
 
   if (!isShortLink && !isDirectLink) {
-    return new Response(
-      encode({ type: "error", message: "Please enter a valid SoundCloud URL" }),
-      { headers: sseHeaders() }
-    );
+    return new Response(encode({ type: "error", message: "Please enter a valid SoundCloud URL" }), {
+      headers: sseHeaders(),
+    });
   }
 
   let resolvedUrl = url;
@@ -92,13 +120,13 @@ export async function GET(req: NextRequest) {
     } catch {
       return new Response(
         encode({ type: "error", message: "Could not resolve SoundCloud link." }),
-        { headers: sseHeaders() }
+        { headers: sseHeaders() },
       );
     }
     if (!resolvedUrl.startsWith("https://soundcloud.com/")) {
       return new Response(
         encode({ type: "error", message: "Please enter a valid SoundCloud URL" }),
-        { headers: sseHeaders() }
+        { headers: sseHeaders() },
       );
     }
   } else {
@@ -123,16 +151,26 @@ export async function GET(req: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       let closed = false;
-      const close = () => { if (!closed) { closed = true; controller.close(); } };
+      const close = () => {
+        if (!closed) {
+          closed = true;
+          controller.close();
+        }
+      };
       const emit = (event: SseEvent) => {
         if (!closed) controller.enqueue(encode(event));
         if (event.type === "status") console.log(`[extract] ${event.message}`);
         else if (event.type === "warning") console.warn(`[extract] WARN ${event.message}`);
         else if (event.type === "resolved") console.log(`[extract] resolved url: ${event.url}`);
         else if (event.type === "error") console.error(`[extract] ERROR ${event.message}`);
-        else if (event.type === "track") console.log(`[extract] track: ${event.data.artist} — ${event.data.title}${event.data.timestamp ? ` @ ${event.data.timestamp}` : ""}${event.data.lowConfidence ? " (low confidence)" : ""}`);
-        else if (event.type === "confirm") console.log(`[extract] confirmed track #${event.index + 1}`);
-        else if (event.type === "done") console.log(`[extract] done: ${event.total} tracks${event.cached ? " (cached)" : ""}`);
+        else if (event.type === "track")
+          console.log(
+            `[extract] track: ${event.data.artist} — ${event.data.title}${event.data.timestamp ? ` @ ${event.data.timestamp}` : ""}${event.data.lowConfidence ? " (low confidence)" : ""}`,
+          );
+        else if (event.type === "confirm")
+          console.log(`[extract] confirmed track #${event.index + 1}`);
+        else if (event.type === "done")
+          console.log(`[extract] done: ${event.total} tracks${event.cached ? " (cached)" : ""}`);
       };
 
       try {
@@ -143,7 +181,10 @@ export async function GET(req: NextRequest) {
         emit({ type: "status", message: "Checking cache..." });
         const cached = await getCachedSetlist(canonicalUrl).catch(() => null);
         if (cached && !cached.incomplete) {
-          emit({ type: "status", message: `Found cached result from ${cached.cachedAt.toLocaleDateString()}` });
+          emit({
+            type: "status",
+            message: `Found cached result from ${cached.cachedAt.toLocaleDateString()}`,
+          });
           for (const t of cached.tracks) {
             emit({ type: "track", data: t });
           }
@@ -207,7 +248,9 @@ export async function GET(req: NextRequest) {
           for (const i of sameArtistGroup(collectedTracks, index)) {
             if (!collectedTracks[i].lowConfidence) continue;
             delete collectedTracks[i].lowConfidence;
-            console.log(`[extract] same artist as another track: ${collectedTracks[i].artist} — ${collectedTracks[i].title}`);
+            console.log(
+              `[extract] same artist as another track: ${collectedTracks[i].artist} — ${collectedTracks[i].title}`,
+            );
             emit({ type: "confirm", index: i });
           }
         };
@@ -221,14 +264,17 @@ export async function GET(req: NextRequest) {
             emit({ type: "track", data: t });
             collectedTracks.push(t);
           }
-          await saveSetlist({
-            url: canonicalUrl,
-            title: track.title,
-            username: track.username,
-            publishedAt: track.publishedAt,
-            tracks: collectedTracks,
-            scTrackId: track.id,
-          }, userEmail).catch(() => {});
+          await saveSetlist(
+            {
+              url: canonicalUrl,
+              title: track.title,
+              username: track.username,
+              publishedAt: track.publishedAt,
+              tracks: collectedTracks,
+              scTrackId: track.id,
+            },
+            userEmail,
+          ).catch(() => {});
           await incrementMonthlyUsage(userEmail).catch(() => {});
           emit({ type: "done", total: collectedTracks.length, title: track.title });
           close();
@@ -236,13 +282,19 @@ export async function GET(req: NextRequest) {
         }
 
         if (parsed.length > 0) {
-          emit({ type: "status", message: `Found ${parsed.length} tracks in description, enriching with audio fingerprinting...` });
+          emit({
+            type: "status",
+            message: `Found ${parsed.length} tracks in description, enriching with audio fingerprinting...`,
+          });
           for (const t of parsed) {
             emit({ type: "track", data: t });
             collectedTracks.push(t);
           }
         } else if (resume) {
-          emit({ type: "status", message: `Continuing the previous extraction from ~${Math.floor((resume.resumeFromSecs ?? 0) / 60)}:00...` });
+          emit({
+            type: "status",
+            message: `Continuing the previous extraction from ~${Math.floor((resume.resumeFromSecs ?? 0) / 60)}:00...`,
+          });
         } else {
           emit({ type: "status", message: "No tracklist in description — analyzing audio..." });
         }
@@ -251,7 +303,10 @@ export async function GET(req: NextRequest) {
         emit({ type: "status", message: "Extracting SoundCloud credentials..." });
         const clientId = await extractClientId(html);
         if (!clientId) {
-          emit({ type: "error", message: "Could not extract SoundCloud client ID. The page may have changed." });
+          emit({
+            type: "error",
+            message: "Could not extract SoundCloud client ID. The page may have changed.",
+          });
           close();
           return;
         }
@@ -286,9 +341,13 @@ export async function GET(req: NextRequest) {
           }
           const fromArtist = ids.filter((c) => c.fromArtist).length;
           console.log(
-            `[comments] ${comments.length} comments → ${ids.length} track IDs (${fromArtist} from the artist, ${added} new)`
+            `[comments] ${comments.length} comments → ${ids.length} track IDs (${fromArtist} from the artist, ${added} new)`,
           );
-          if (added > 0) emit({ type: "status", message: `Found ${added} track ID${added === 1 ? "" : "s"} in comments` });
+          if (added > 0)
+            emit({
+              type: "status",
+              message: `Found ${added} track ID${added === 1 ? "" : "s"} in comments`,
+            });
         }
         // Covers comment IDs and tracks saved by an earlier run (sets cut off before this rule existed).
         collectedTracks.forEach((_, i) => corroborate(i));
@@ -307,7 +366,10 @@ export async function GET(req: NextRequest) {
           if (m3u8Url) break;
         }
         if (!m3u8Url) {
-          emit({ type: "error", message: "Could not resolve stream URL. The track may be private." });
+          emit({
+            type: "error",
+            message: "Could not resolve stream URL. The track may be private.",
+          });
           close();
           return;
         }
@@ -361,19 +423,24 @@ export async function GET(req: NextRequest) {
           if (mode !== lastMode) {
             const recent = recentHits.slice(-MODE_WINDOW);
             console.log(
-              `[plan] mode: ${lastMode ?? "start"} → ${mode} (${recent.filter(Boolean).length}/${recent.length} recent probes recognized)`
+              `[plan] mode: ${lastMode ?? "start"} → ${mode} (${recent.filter(Boolean).length}/${recent.length} recent probes recognized)`,
             );
             lastMode = mode;
           }
           if (!retriesOffLogged && !retriesWorthIt(acrRetryCalls, retryHits)) {
             retriesOffLogged = true;
-            console.log(`[plan] retries off for this run: ${retryHits}/${acrRetryCalls} retries recognized something`);
+            console.log(
+              `[plan] retries off for this run: ${retryHits}/${acrRetryCalls} retries recognized something`,
+            );
           }
 
           let decision: { step: number; reason: string };
           try {
             if (acrCalls >= ACR_MAX_CALLS_PER_SESSION) {
-              emit({ type: "warning", message: `ACRCloud call limit reached (${ACR_MAX_CALLS_PER_SESSION} calls) — this setlist is incomplete.` });
+              emit({
+                type: "warning",
+                message: `ACRCloud call limit reached (${ACR_MAX_CALLS_PER_SESSION} calls) — this setlist is incomplete.`,
+              });
               resumeFromSecs = seg.offsetSecs;
               break;
             }
@@ -381,13 +448,18 @@ export async function GET(req: NextRequest) {
             acrCalls++;
             acrPrimaryCalls++;
             probes++;
-            console.log(`[extract] ACR call #${acrCalls} (primary) at ${formatMmSs(seg.offsetSecs)}`);
+            console.log(
+              `[extract] ACR call #${acrCalls} (primary) at ${formatMmSs(seg.offsetSecs)}`,
+            );
             let match: AcrMatch | null = await identifyAudio(bytes, seg.offsetSecs);
             let retriedAndMissed = false;
 
             // Retry-with-shift: the first probe may have landed on a blend between two tracks.
             if (!match && shouldRetry(mode, acrRetryCalls, retryHits)) {
-              const retryIdx = findSegmentIndexNearOffset(allSegments, seg.offsetSecs + SHIFT_RETRY_SECS);
+              const retryIdx = findSegmentIndexNearOffset(
+                allSegments,
+                seg.offsetSecs + SHIFT_RETRY_SECS,
+              );
               if (
                 retryIdx >= 0 &&
                 retryIdx !== idx &&
@@ -400,7 +472,9 @@ export async function GET(req: NextRequest) {
                   const retryBytes = await downloadProbeBytes(allSegments, retryIdx);
                   acrCalls++;
                   acrRetryCalls++;
-                  console.log(`[extract] ACR call #${acrCalls} (retry +${SHIFT_RETRY_SECS}s) at ${formatMmSs(retrySeg.offsetSecs)}`);
+                  console.log(
+                    `[extract] ACR call #${acrCalls} (retry +${SHIFT_RETRY_SECS}s) at ${formatMmSs(retrySeg.offsetSecs)}`,
+                  );
                   const retryMatch = await identifyAudio(retryBytes, retrySeg.offsetSecs);
                   if (retryMatch) {
                     retryHits++;
@@ -411,7 +485,11 @@ export async function GET(req: NextRequest) {
                   }
                 } catch (retryErr) {
                   if (retryErr instanceof AcrRateLimitError) {
-                    emit({ type: "warning", message: "Daily recognition limit reached — this setlist is incomplete. Search it again tomorrow to continue." });
+                    emit({
+                      type: "warning",
+                      message:
+                        "Daily recognition limit reached — this setlist is incomplete. Search it again tomorrow to continue.",
+                    });
                     resumeFromSecs = seg.offsetSecs;
                     break;
                   }
@@ -464,7 +542,11 @@ export async function GET(req: NextRequest) {
             }
           } catch (err) {
             if (err instanceof AcrRateLimitError) {
-              emit({ type: "warning", message: "Daily recognition limit reached — this setlist is incomplete. Search it again tomorrow to continue." });
+              emit({
+                type: "warning",
+                message:
+                  "Daily recognition limit reached — this setlist is incomplete. Search it again tomorrow to continue.",
+              });
               resumeFromSecs = seg.offsetSecs;
               break;
             }
@@ -473,13 +555,15 @@ export async function GET(req: NextRequest) {
           }
 
           targetOffset = seg.offsetSecs + decision.step;
-          console.log(`[plan] next probe at ${formatMmSs(targetOffset)} (+${Math.round(decision.step)}s: ${decision.reason})`);
+          console.log(
+            `[plan] next probe at ${formatMmSs(targetOffset)} (+${Math.round(decision.step)}s: ${decision.reason})`,
+          );
         }
 
         const hitRate = acrCalls > 0 ? Math.round((matches / acrCalls) * 100) : 0;
         console.log(
           `[extract] cost summary: ACR=${acrCalls} (primary=${acrPrimaryCalls}, retry=${acrRetryCalls}), ` +
-          `AudD=${auddCalls}, matches=${matches}, recognitions=${recognitions}, probes=${probes}, retries=${acrRetryCalls}, hit-rate=${hitRate}%`
+            `AudD=${auddCalls}, matches=${matches}, recognitions=${recognitions}, probes=${probes}, retries=${acrRetryCalls}, hit-rate=${hitRate}%`,
         );
 
         // Record ACR spend against the global daily budget regardless of outcome.
@@ -489,24 +573,28 @@ export async function GET(req: NextRequest) {
         // One charge per user per set: a user who already paid (closed the tab earlier)
         // finishes it for free. Cut-offs caused by our limits are never charged.
         const alreadyPaid = !!resume?.prepaidBy && resume.prepaidBy === userEmail;
-        const charge = !alreadyPaid && (incomplete ? clientAborted && acrCalls > 0 : collectedTracks.length > 0);
-        const prepaidBy = incomplete ? (charge ? userEmail : resume?.prepaidBy ?? null) : null;
+        const charge =
+          !alreadyPaid && (incomplete ? clientAborted && acrCalls > 0 : collectedTracks.length > 0);
+        const prepaidBy = incomplete ? (charge ? userEmail : (resume?.prepaidBy ?? null)) : null;
         // Complete runs are saved when they found something. Cut-off runs are always saved
         // (even with 0 tracks) so the next lookup continues instead of starting over. A finished
         // resume is always saved so the old "incomplete" record is replaced.
         if (collectedTracks.length > 0 || incomplete || resume) {
-          await saveSetlist({
-            url: canonicalUrl,
-            title: track.title,
-            username: track.username,
-            publishedAt: track.publishedAt,
-            tracks: sortTracksByTime(collectedTracks),
-            incomplete,
-            resumeFromSecs,
-            durationSecs: track.duration ? Math.round(track.duration / 1000) : totalDuration,
-            scTrackId: track.id,
-            prepaidBy,
-          }, userEmail).catch(() => {});
+          await saveSetlist(
+            {
+              url: canonicalUrl,
+              title: track.title,
+              username: track.username,
+              publishedAt: track.publishedAt,
+              tracks: sortTracksByTime(collectedTracks),
+              incomplete,
+              resumeFromSecs,
+              durationSecs: track.duration ? Math.round(track.duration / 1000) : totalDuration,
+              scTrackId: track.id,
+              prepaidBy,
+            },
+            userEmail,
+          ).catch(() => {});
         }
         finalTracks = collectedTracks;
         if (charge) {
@@ -515,7 +603,7 @@ export async function GET(req: NextRequest) {
         if (incomplete) {
           console.log(
             `[extract] incomplete (${clientAborted ? "client closed" : "limit reached"}): saved ${collectedTracks.length} tracks, ` +
-              `will resume at ${formatMmSs(resumeFromSecs!)} (${charge ? "charged" : "not charged"})`
+              `will resume at ${formatMmSs(resumeFromSecs!)} (${charge ? "charged" : "not charged"})`,
           );
         }
 

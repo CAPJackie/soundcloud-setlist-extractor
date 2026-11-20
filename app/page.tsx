@@ -49,7 +49,10 @@ function HomeInner() {
   const [currentUrl, setCurrentUrl] = useState<string | null>(null);
   const [mixTitle, setMixTitle] = useState<string | null>(null);
   const [incomplete, setIncomplete] = useState(false);
-  const [progress, setProgress] = useState<{ resumeFromSecs: number | null; durationSecs: number | null }>({
+  const [progress, setProgress] = useState<{
+    resumeFromSecs: number | null;
+    durationSecs: number | null;
+  }>({
     resumeFromSecs: null,
     durationSecs: null,
   });
@@ -91,14 +94,19 @@ function HomeInner() {
             else if (event.type === "resolved") setCurrentUrl(event.url);
             else if (event.type === "track") setTracks((prev) => [...prev, event.data]);
             else if (event.type === "confirm")
-              setTracks((prev) => prev.map((t, i) => (i === event.index ? { ...t, lowConfidence: false } : t)));
+              setTracks((prev) =>
+                prev.map((t, i) => (i === event.index ? { ...t, lowConfidence: false } : t)),
+              );
             else if (event.type === "error") setError(event.message);
             else if (event.type === "done") {
               setTotal(event.total);
               // Comment IDs arrive before audio matches: show the final list in mix order.
               setTracks((prev) => sortTracksByTime(prev));
               setIncomplete(!!event.incomplete);
-              setProgress({ resumeFromSecs: event.resumeFromSecs ?? null, durationSecs: event.durationSecs ?? null });
+              setProgress({
+                resumeFromSecs: event.resumeFromSecs ?? null,
+                durationSecs: event.durationSecs ?? null,
+              });
               setStatus("");
               if (event.title) setMixTitle(event.title);
             }
@@ -130,28 +138,34 @@ function HomeInner() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center px-4 py-10">
-      <div className="w-full max-w-2xl flex flex-col gap-10">
+    <main className="flex min-h-screen flex-col items-center bg-zinc-50 px-4 py-10 dark:bg-zinc-950">
+      <div className="flex w-full max-w-2xl flex-col gap-10">
         {/* Input */}
         <div className="flex flex-col gap-3">
           <URLInput onSubmit={handleSubmit} loading={loading} />
           <UsageBanner refreshKey={usageTick} />
           <p className="text-xs text-zinc-400 dark:text-zinc-600">
             Not affiliated with SoundCloud. For personal use only. See our{" "}
-            <a href="/terms" className="underline hover:text-zinc-500">Terms</a> and{" "}
-            <a href="/privacy" className="underline hover:text-zinc-500">Privacy Policy</a>.
+            <a href="/terms" className="underline hover:text-zinc-500">
+              Terms
+            </a>{" "}
+            and{" "}
+            <a href="/privacy" className="underline hover:text-zinc-500">
+              Privacy Policy
+            </a>
+            .
           </p>
         </div>
 
         {/* SoundCloud player */}
         {currentUrl && (
-          <div className="sticky top-14 z-40 bg-zinc-50 dark:bg-zinc-950 pt-2 pb-3 shadow-[0_4px_12px_-2px] shadow-zinc-200/80 dark:shadow-zinc-950/80 -mt-6">
+          <div className="sticky top-14 z-40 -mt-6 bg-zinc-50 pt-2 pb-3 shadow-[0_4px_12px_-2px] shadow-zinc-200/80 dark:bg-zinc-950 dark:shadow-zinc-950/80">
             <iframe
               src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(currentUrl)}&visual=true&auto_play=false&show_comments=false&hide_related=true`}
               width="100%"
               height="300"
               allow="autoplay"
-              className="rounded-xl border border-zinc-100 dark:border-zinc-800 w-full"
+              className="w-full rounded-xl border border-zinc-100 dark:border-zinc-800"
             />
           </div>
         )}
@@ -169,7 +183,13 @@ function HomeInner() {
           resumeFromSecs={progress.resumeFromSecs}
           durationSecs={progress.durationSecs}
           onResume={() => currentUrl && handleSubmit(currentUrl)}
-          onCacheReset={() => { setTracks([]); setTotal(null); setStatus(""); setMixTitle(null); setIncomplete(false); }}
+          onCacheReset={() => {
+            setTracks([]);
+            setTotal(null);
+            setStatus("");
+            setMixTitle(null);
+            setIncomplete(false);
+          }}
         />
       </div>
     </main>

@@ -5,7 +5,13 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-export default function UpgradeButton({ className, children }: { className?: string; children?: React.ReactNode }) {
+export default function UpgradeButton({
+  className,
+  children,
+}: {
+  className?: string;
+  children?: React.ReactNode;
+}) {
   const { status } = useSession();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -36,10 +42,10 @@ export default function UpgradeButton({ className, children }: { className?: str
       disabled={loading}
       className={
         className ??
-        "w-full rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold py-3 text-sm transition"
+        "w-full rounded-xl bg-orange-500 py-3 text-sm font-semibold text-white transition hover:bg-orange-600 disabled:opacity-50"
       }
     >
-      {loading ? "Starting..." : children ?? "Upgrade to Pro"}
+      {loading ? "Starting..." : (children ?? "Upgrade to Pro")}
     </button>
   );
 }

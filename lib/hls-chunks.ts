@@ -68,7 +68,10 @@ function extractFirstVariantUrl(text: string, baseUrl: string): string | null {
   return null;
 }
 
-export function findSegmentNearOffset(segments: HlsSegment[], targetSecs: number): HlsSegment | null {
+export function findSegmentNearOffset(
+  segments: HlsSegment[],
+  targetSecs: number,
+): HlsSegment | null {
   if (segments.length === 0) return null;
   for (const seg of segments) {
     if (seg.offsetSecs >= targetSecs) return seg;
@@ -87,14 +90,12 @@ export function findSegmentIndexNearOffset(segments: HlsSegment[], targetSecs: n
 export async function downloadProbeBytes(
   segments: HlsSegment[],
   startIndex: number,
-  count: number = PROBE_SEGMENT_COUNT
+  count: number = PROBE_SEGMENT_COUNT,
 ): Promise<Buffer> {
   const slice = segments.slice(startIndex, startIndex + count);
   if (slice.length === 0) throw new Error("No segments available for probe");
 
-  const results = await Promise.allSettled(
-    slice.map((s) => downloadSegmentBytes(s.url))
-  );
+  const results = await Promise.allSettled(slice.map((s) => downloadSegmentBytes(s.url)));
 
   const buffers: Buffer[] = [];
   for (const r of results) {
@@ -108,7 +109,9 @@ export async function downloadProbeBytes(
   const initUrl = slice[0].initUrl;
   if (initUrl) buffers.unshift(await downloadInitBytes(initUrl));
 
-  console.log(`[hls] probe: ${buffers.length - (initUrl ? 1 : 0)}/${slice.length} segments joined${initUrl ? " (+init)" : ""}`);
+  console.log(
+    `[hls] probe: ${buffers.length - (initUrl ? 1 : 0)}/${slice.length} segments joined${initUrl ? " (+init)" : ""}`,
+  );
   return Buffer.concat(buffers);
 }
 

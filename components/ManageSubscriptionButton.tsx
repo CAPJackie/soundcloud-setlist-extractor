@@ -27,7 +27,7 @@ export default function ManageSubscriptionButton() {
     <button
       onClick={onClick}
       disabled={loading}
-      className="w-full rounded-xl border border-orange-500 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-500/10 disabled:opacity-50 font-semibold py-3 text-sm transition"
+      className="w-full rounded-xl border border-orange-500 py-3 text-sm font-semibold text-orange-600 transition hover:bg-orange-50 disabled:opacity-50 dark:text-orange-400 dark:hover:bg-orange-500/10"
     >
       {loading ? "Opening..." : "Manage subscription"}
     </button>
