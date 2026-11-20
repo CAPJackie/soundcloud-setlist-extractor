@@ -1,0 +1,2 @@
+# Format only staged files so the pre-push format check never rejects a push.
+npx --no-install lint-staged
